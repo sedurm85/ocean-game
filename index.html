@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>바다 속 보물찾기 🌊</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+
+        * {
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #001e3c;
+            font-family: 'Jua', sans-serif;
+            color: white;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-touch-callout: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            z-index: 10;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .hud-left {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .score-box {
+            font-size: 24px;
+            color: #ffd700;
+        }
+
+        .combo-box {
+            font-size: 18px;
+            color: #ff6b6b;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .combo-active {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .hud-center {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            color: #fff;
+            background: rgba(0,0,0,0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: none;
+        }
+
+        .hud-right {
+            font-size: 24px;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 30, 60, 0.85);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            pointer-events: auto;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 42px;
+            margin-bottom: 10px;
+            text-align: center;
+            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.3));
+        }
+
+        h2 {
+            font-size: 24px;
+            margin-bottom: 30px;
+            color: #a8d0e6;
+            font-weight: normal;
+        }
+
+        .btn {
+            background: linear-gradient(to bottom, #ff9966, #ff5e62);
+            border: none;
+            padding: 15px 40px;
+            font-size: 24px;
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Jua', sans-serif;
+            box-shadow: 0 4px 15px rgba(255, 94, 98, 0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+            animation: pulse 2s infinite;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 8px rgba(255, 94, 98, 0.4);
+        }
+
+        .high-score {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #ffd700;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .floating-text {
+            position: absolute;
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatUp 1s forwards;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1.2); opacity: 0; }
+        }
+
+        @media (max-width: 480px) {
+            h1 { font-size: 32px; }
+            .btn { padding: 12px 30px; font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud">
+        <div class="hud-left">
+            <div class="score-box">점수: <span id="score">0</span></div>
+            <div id="combo-display" class="combo-box">COMBO x<span id="combo-count">0</span></div>
+        </div>
+        <div id="powerup-indicator" class="hud-center"></div>
+        <div class="hud-right">
+            <span id="lives">❤️❤️❤️</span>
+        </div>
+    </div>
+
+    <div id="start-screen" class="screen">
+        <h1>바다 속 보물찾기 🌊</h1>
+        <h2>보물을 모으고 장애물을 피하세요!</h2>
+        <button class="btn" id="start-btn">게임 시작!</button>
+        <div class="high-score">최고 기록: <span id="start-high-score">0</span></div>
+    </div>
+
+    <div id="game-over-screen" class="screen hidden">
+        <h1>게임 오버! 😢</h1>
+        <h2 id="final-score-text">점수: 0</h2>
+        <div id="new-record-msg" style="display:none; color: #ffd700; font-size: 20px; margin-bottom: 15px;">🏆 새로운 최고 기록! 🏆</div>
+        <button class="btn" id="restart-btn">다시 하기</button>
+        <div class="high-score">최고 기록: <span id="end-high-score">0</span></div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const uiLayer = document.getElementById('ui-layer');
+
+let gameState = 'MENU';
+let score = 0;
+let highScore = localStorage.getItem('oceanTreasureHighScore') || 0;
+let lives = 3;
+let gameTime = 0;
+let difficultyLevel = 1;
+
+let comboCount = 0;
+let comboTimer = 0;
+const COMBO_WINDOW = 120;
+
+let activePowerup = null;
+let powerupTimer = 0;
+
+let diver = { x: 0, y: 0, radius: 25, targetX: 0, angle: 0 };
+let items = [];
+let particles = [];
+let bubbles = [];
+
+let isTouching = false;
+let touchX = 0;
+
+let shakeIntensity = 0;
+
+const GRAVITY_BASE = 2;
+const SPAWN_RATE_BASE = 60;
+let currentSpawnRate = SPAWN_RATE_BASE;
+let spawnTimer = 0;
+
+const ITEM_TYPES = {
+    SHELL: { type: 'treasure', emoji: '🐚', score: 10, weight: 30 },
+    OYSTER: { type: 'treasure', emoji: '🦪', score: 15, weight: 25 },
+    GEM: { type: 'treasure', emoji: '💎', score: 25, weight: 15 },
+    STAR: { type: 'treasure', emoji: '⭐', score: 30, weight: 10 },
+    CROWN: { type: 'treasure', emoji: '👑', score: 50, weight: 5 },
+    RAINBOW: { type: 'treasure', emoji: '🌈', score: 100, weight: 2, effect: 'FEVER' },
+    
+    JELLY: { type: 'obstacle', emoji: '🪼', damage: 1, weight: 20 },
+    SHARK: { type: 'obstacle', emoji: '🦈', damage: 1, weight: 10, moveType: 'sideways' },
+    WHIRL: { type: 'obstacle', emoji: '🌊', damage: 1, weight: 5 },
+
+    MAGNET: { type: 'powerup', emoji: '🧲', effect: 'MAGNET', duration: 300, weight: 3 },
+    SLOW: { type: 'powerup', emoji: '⏱️', effect: 'SLOW', duration: 300, weight: 3 },
+    SHIELD: { type: 'powerup', emoji: '🛡️', effect: 'SHIELD', duration: 600, weight: 3 }
+};
+
+function init() {
+    resize();
+    window.addEventListener('resize', resize);
+    
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('contextmenu', e => e.preventDefault());
+
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('restart-btn').addEventListener('click', startGame);
+
+    updateHighScoreDisplay();
+    
+    requestAnimationFrame(gameLoop);
+
+    for(let i=0; i<20; i++) {
+        bubbles.push(createBubble(true));
+    }
+}
+
+function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (gameState === 'MENU') {
+        diver.x = window.innerWidth / 2;
+        diver.y = window.innerHeight - 100;
+        diver.targetX = window.innerWidth / 2;
+    }
+}
+
+function getWidth() { return window.innerWidth; }
+function getHeight() { return window.innerHeight; }
+
+function startGame() {
+    gameState = 'PLAYING';
+    score = 0;
+    lives = 3;
+    gameTime = 0;
+    difficultyLevel = 1;
+    items = [];
+    particles = [];
+    activePowerup = null;
+    powerupTimer = 0;
+    comboCount = 0;
+    
+    diver.x = getWidth() / 2;
+    diver.y = getHeight() - 100;
+    diver.targetX = getWidth() / 2;
+
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('game-over-screen').classList.add('hidden');
+    updateHUD();
+}
+
+function gameOver() {
+    gameState = 'GAMEOVER';
+    
+    let isNewRecord = false;
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('oceanTreasureHighScore', highScore);
+        isNewRecord = true;
+    }
+
+    document.getElementById('final-score-text').innerText = `점수: ${score}`;
+    document.getElementById('new-record-msg').style.display = isNewRecord ? 'block' : 'none';
+    updateHighScoreDisplay();
+    
+    document.getElementById('game-over-screen').classList.remove('hidden');
+}
+
+function updateHighScoreDisplay() {
+    document.getElementById('start-high-score').innerText = highScore;
+    document.getElementById('end-high-score').innerText = highScore;
+}
+
+function handleTouchStart(e) {
+    e.preventDefault();
+    isTouching = true;
+    touchX = e.touches[0].clientX;
+    diver.targetX = touchX;
+}
+
+function handleTouchMove(e) {
+    e.preventDefault();
+    if (isTouching) {
+        touchX = e.touches[0].clientX;
+        diver.targetX = touchX;
+    }
+}
+
+function handleTouchEnd(e) {
+    e.preventDefault();
+    isTouching = false;
+}
+
+function handleMouseDown(e) {
+    isTouching = true;
+    touchX = e.clientX;
+    diver.targetX = touchX;
+}
+
+function handleMouseMove(e) {
+    if (isTouching) {
+        touchX = e.clientX;
+        diver.targetX = touchX;
+    }
+}
+
+function handleMouseUp(e) {
+    isTouching = false;
+}
+
+function update() {
+    if (gameState !== 'PLAYING') {
+        updateBubbles();
+        return;
+    }
+
+    gameTime++;
+    
+    if (gameTime % 600 === 0) {
+        difficultyLevel += 0.1;
+        currentSpawnRate = Math.max(20, SPAWN_RATE_BASE - (difficultyLevel * 5));
+    }
+
+    diver.targetX = Math.max(diver.radius, Math.min(getWidth() - diver.radius, diver.targetX));
+    
+    let dx = diver.targetX - diver.x;
+    diver.x += dx * 0.15;
+    
+    diver.angle = dx * 0.05; 
+    diver.angle = Math.max(-0.5, Math.min(0.5, diver.angle));
+
+    diver.y = (getHeight() - 100) + Math.sin(gameTime * 0.05) * 5;
+
+    spawnTimer++;
+    let adjustedSpawnRate = activePowerup === 'FEVER' ? 10 : currentSpawnRate;
+    
+    if (spawnTimer > adjustedSpawnRate) {
+        spawnItem();
+        spawnTimer = 0;
+    }
+
+    for (let i = items.length - 1; i >= 0; i--) {
+        let item = items[i];
+        
+        let speed = (GRAVITY_BASE + (difficultyLevel * 0.5)) * item.speedMult;
+        
+        if (activePowerup === 'SLOW') speed *= 0.5;
+        
+        item.y += speed;
+        
+        item.x += Math.sin(gameTime * 0.05 + item.offset) * 1.5;
+        
+        if (item.def.moveType === 'sideways') {
+            item.x += Math.sin(gameTime * 0.02) * 3;
+        }
+
+        if (activePowerup === 'MAGNET' && item.def.type === 'treasure') {
+            let dist = Math.hypot(diver.x - item.x, diver.y - item.y);
+            if (dist < 300) {
+                item.x += (diver.x - item.x) * 0.05;
+                item.y += (diver.y - item.y) * 0.05;
+            }
+        }
+
+        let dist = Math.hypot(diver.x - item.x, diver.y - item.y);
+        if (dist < diver.radius + item.radius) {
+            collectItem(item, i);
+            continue;
+        }
+
+        if (item.y > getHeight() + 50) {
+            items.splice(i, 1);
+        }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        p.vy += 0.1;
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    updateBubbles();
+
+    if (activePowerup) {
+        powerupTimer--;
+        if (powerupTimer <= 0) {
+            activePowerup = null;
+            updateHUD();
+        }
+    }
+
+    if (comboCount > 0) {
+        comboTimer--;
+        if (comboTimer <= 0) {
+            comboCount = 0;
+            updateHUD();
+        }
+    }
+
+    if (shakeIntensity > 0) {
+        shakeIntensity *= 0.9;
+        if (shakeIntensity < 0.5) shakeIntensity = 0;
+    }
+}
+
+function updateBubbles() {
+    if (Math.random() < 0.05) bubbles.push(createBubble());
+
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+        let b = bubbles[i];
+        b.y -= b.speed;
+        b.x += Math.sin(gameTime * 0.01 + b.offset) * 0.5;
+        if (b.y < -20) bubbles.splice(i, 1);
+    }
+}
+
+function createBubble(randomY = false) {
+    return {
+        x: Math.random() * getWidth(),
+        y: randomY ? Math.random() * getHeight() : getHeight() + 20,
+        size: Math.random() * 5 + 2,
+        speed: Math.random() * 1 + 0.5,
+        offset: Math.random() * 100,
+        opacity: Math.random() * 0.5 + 0.1
+    };
+}
+
+function spawnItem() {
+    let rand = Math.random() * 100;
+    let typeKey;
+    
+    let pool = [];
+    for (let key in ITEM_TYPES) {
+        let item = ITEM_TYPES[key];
+        let weight = item.weight;
+        
+        if (activePowerup === 'FEVER') {
+            if (item.type === 'treasure') pool.push({key, weight: weight * 2});
+        } else {
+            pool.push({key, weight});
+        }
+    }
+    
+    let totalWeight = pool.reduce((sum, item) => sum + item.weight, 0);
+    let randomVal = Math.random() * totalWeight;
+    let currentSum = 0;
+    
+    for (let item of pool) {
+        currentSum += item.weight;
+        if (randomVal <= currentSum) {
+            typeKey = item.key;
+            break;
+        }
+    }
+
+    let def = ITEM_TYPES[typeKey];
+    
+    items.push({
+        def: def,
+        x: Math.random() * (getWidth() - 60) + 30,
+        y: -50,
+        radius: 20,
+        speedMult: Math.random() * 0.5 + 0.8,
+        offset: Math.random() * 100
+    });
+}
+
+function collectItem(item, index) {
+    items.splice(index, 1);
+    
+    let def = item.def;
+
+    if (def.type === 'treasure') {
+        comboCount++;
+        comboTimer = COMBO_WINDOW;
+        
+        let multiplier = Math.min(5, Math.floor(comboCount / 5) + 1);
+        let points = def.score * multiplier;
+        
+        if (activePowerup === 'FEVER') points *= 2;
+        
+        score += points;
+        
+        createExplosion(item.x, item.y, 'gold');
+        showFloatingText(`+${points}`, item.x, item.y, '#ffd700');
+        
+        if (def.effect === 'FEVER') activatePowerup('FEVER');
+        
+    } else if (def.type === 'obstacle') {
+        if (activePowerup === 'SHIELD') {
+            activePowerup = null;
+            createExplosion(item.x, item.y, 'cyan');
+            showFloatingText("방어!", item.x, item.y, 'cyan');
+        } else if (activePowerup === 'FEVER') {
+            score += 50;
+            createExplosion(item.x, item.y, 'gold');
+            showFloatingText("+50", item.x, item.y, '#ffd700');
+        } else {
+            lives--;
+            shakeIntensity = 20;
+            createExplosion(item.x, item.y, 'red');
+            showFloatingText("앗!", item.x, item.y, 'red');
+            
+            comboCount = 0;
+            
+            if (lives <= 0) {
+                gameOver();
+            }
+        }
+    } else if (def.type === 'powerup') {
+        activatePowerup(def.effect);
+        createExplosion(item.x, item.y, 'white');
+        let text = "";
+        if (def.effect === 'MAGNET') text = "자석!";
+        if (def.effect === 'SLOW') text = "슬로우!";
+        if (def.effect === 'SHIELD') text = "방어막!";
+        showFloatingText(text, item.x, item.y, '#fff');
+    }
+    
+    updateHUD();
+}
+
+function activatePowerup(type) {
+    activePowerup = type;
+    let def = Object.values(ITEM_TYPES).find(i => i.effect === type);
+    powerupTimer = def ? def.duration : 300;
+    if (type === 'FEVER') powerupTimer = 300;
+}
+
+function createExplosion(x, y, color) {
+    for (let i = 0; i < 10; i++) {
+        particles.push({
+            x: x,
+            y: y,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10,
+            life: 30,
+            color: color,
+            size: Math.random() * 5 + 2
+        });
+    }
+}
+
+function showFloatingText(text, x, y, color) {
+    let el = document.createElement('div');
+    el.className = 'floating-text';
+    el.innerText = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.color = color;
+    el.style.fontSize = '24px';
+    document.getElementById('game-container').appendChild(el);
+    
+    setTimeout(() => {
+        el.remove();
+    }, 1000);
+}
+
+function updateHUD() {
+    document.getElementById('score').innerText = score;
+    
+    let hearts = "";
+    for(let i=0; i<lives; i++) hearts += "❤️";
+    document.getElementById('lives').innerText = hearts;
+    
+    let comboEl = document.getElementById('combo-display');
+    let comboCountEl = document.getElementById('combo-count');
+    if (comboCount > 1) {
+        comboEl.classList.add('combo-active');
+        let comboText = `x${comboCount}`;
+        if (comboCount >= 20) comboText += " 전설! 🌟";
+        else if (comboCount >= 15) comboText += " 대박! 🔥";
+        else if (comboCount >= 10) comboText += " 최고! ⚡";
+        else if (comboCount >= 5) comboText += " 굿! ✨";
+        comboCountEl.innerText = comboText;
+    } else {
+        comboEl.classList.remove('combo-active');
+    }
+
+    let puEl = document.getElementById('powerup-indicator');
+    if (activePowerup) {
+        puEl.style.display = 'block';
+        let text = "";
+        if (activePowerup === 'MAGNET') text = "🧲 자석 활성화";
+        if (activePowerup === 'SLOW') text = "⏱️ 시간 감속";
+        if (activePowerup === 'SHIELD') text = "🛡️ 방어막";
+        if (activePowerup === 'FEVER') text = "🌈 피버 타임!";
+        puEl.innerText = text;
+    } else {
+        puEl.style.display = 'none';
+    }
+}
+
+function drawWaves(time) {
+    const w = getWidth();
+    // Draw two wave layers at the top for ocean surface feel
+    ctx.save();
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    for (let x = 0; x <= w; x += 5) {
+        ctx.lineTo(x, 20 + Math.sin(x * 0.02 + time * 0.003) * 8 + Math.sin(x * 0.01 + time * 0.005) * 4);
+    }
+    ctx.lineTo(w, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.globalAlpha = 0.08;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    for (let x = 0; x <= w; x += 5) {
+        ctx.lineTo(x, 35 + Math.sin(x * 0.015 + time * 0.004 + 1) * 10);
+    }
+    ctx.lineTo(w, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+function draw() {
+    const w = getWidth();
+    const h = getHeight();
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.save();
+    if (shakeIntensity > 0) {
+        let dx = (Math.random() - 0.5) * shakeIntensity;
+        let dy = (Math.random() - 0.5) * shakeIntensity;
+        ctx.translate(dx, dy);
+    }
+
+    let grad = ctx.createLinearGradient(0, 0, 0, h);
+    if (activePowerup === 'FEVER') {
+        let time = Date.now() * 0.002;
+        let r = Math.sin(time) * 127 + 128;
+        let g = Math.sin(time + 2) * 127 + 128;
+        let b = Math.sin(time + 4) * 127 + 128;
+        grad.addColorStop(0, `rgb(${r},${g},${b})`);
+        grad.addColorStop(1, '#001e3c');
+    } else {
+        grad.addColorStop(0, '#87ceeb');
+        grad.addColorStop(0.3, '#4facfe');
+        grad.addColorStop(0.7, '#0066cc');
+        grad.addColorStop(1, '#001e3c');
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Ocean surface waves
+    drawWaves(Date.now());
+
+    // Subtle light rays from surface
+    ctx.save();
+    ctx.globalAlpha = 0.03;
+    for (let i = 0; i < 5; i++) {
+        let lx = w * 0.15 + i * w * 0.18;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(lx, 0);
+        ctx.lineTo(lx - 30, h * 0.6);
+        ctx.lineTo(lx + 30, h * 0.6);
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.restore();
+
+    // Bubbles
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    for (let b of bubbles) {
+        ctx.globalAlpha = b.opacity;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Ocean floor (sand)
+    ctx.save();
+    let sandGrad = ctx.createLinearGradient(0, h - 40, 0, h);
+    sandGrad.addColorStop(0, 'rgba(194, 154, 108, 0)');
+    sandGrad.addColorStop(0.3, 'rgba(194, 154, 108, 0.3)');
+    sandGrad.addColorStop(1, 'rgba(194, 154, 108, 0.5)');
+    ctx.fillStyle = sandGrad;
+    ctx.fillRect(0, h - 40, w, 40);
+    // Small seaweed decorations
+    ctx.fillStyle = 'rgba(34, 139, 34, 0.3)';
+    for (let i = 0; i < 6; i++) {
+        let sx = w * 0.1 + i * w * 0.18;
+        let swayOffset = Math.sin(Date.now() * 0.002 + i) * 5;
+        ctx.beginPath();
+        ctx.moveTo(sx, h);
+        ctx.quadraticCurveTo(sx + swayOffset, h - 30, sx + swayOffset * 0.5, h - 45);
+        ctx.quadraticCurveTo(sx + swayOffset * 0.3, h - 30, sx + 5, h);
+        ctx.fill();
+    }
+    ctx.restore();
+
+    // Diver character
+    if (gameState !== 'GAMEOVER') {
+        ctx.save();
+        ctx.translate(diver.x, diver.y);
+        ctx.rotate(diver.angle);
+        
+        if (activePowerup === 'SHIELD') {
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = 'cyan';
+            // Draw shield bubble
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, 35, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (activePowerup === 'FEVER') {
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = 'gold';
+        } else {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        }
+        
+        ctx.font = "50px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("🤿", 0, 0);
+        ctx.restore();
+    }
+
+    for (let item of items) {
+        ctx.font = "40px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(item.def.emoji, item.x, item.y);
+    }
+
+    for (let p of particles) {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life / 30;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+init();
+
+</script>
+</body>
+</html>
