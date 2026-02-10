@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>바다 속 보물찾기 🌊</title>
+    
+    <!-- Firebase Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
 
@@ -125,6 +131,7 @@
         .hidden {
             opacity: 0;
             pointer-events: none;
+            display: none !important;
         }
 
         h1 {
@@ -142,6 +149,7 @@
             margin-bottom: 30px;
             color: #a8d0e6;
             font-weight: normal;
+            text-align: center;
         }
 
         .btn {
@@ -156,6 +164,7 @@
             box-shadow: 0 4px 15px rgba(255, 94, 98, 0.4);
             transition: transform 0.1s, box-shadow 0.1s;
             animation: pulse 2s infinite;
+            margin: 10px;
         }
 
         .btn:active {
@@ -188,9 +197,149 @@
             100% { transform: translateY(-50px) scale(1.2); opacity: 0; }
         }
 
+        /* Nickname Screen */
+        #nickname-screen {
+            z-index: 30;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        #nickname-input {
+            padding: 15px 20px;
+            font-size: 22px;
+            border-radius: 15px;
+            border: 3px solid #4facfe;
+            outline: none;
+            text-align: center;
+            font-family: 'Jua', sans-serif;
+            width: 80%;
+            max-width: 300px;
+            touch-action: auto !important;
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+            background: white;
+            color: #333;
+        }
+        
+        #nickname-error {
+            color: #ff6b6b;
+            font-size: 18px;
+            height: 24px;
+            margin-top: 5px;
+        }
+
+        /* Leaderboard Screen */
+        #leaderboard-screen {
+            background: rgba(0, 20, 50, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 40;
+        }
+
+        .leaderboard-container {
+            width: 90%;
+            max-width: 500px;
+            height: 60vh;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .leaderboard-list {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-right: 5px;
+        }
+
+        .rank-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            font-size: 18px;
+        }
+        
+        .rank-item:nth-child(odd) {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .rank-item.me {
+            background: rgba(79, 172, 254, 0.3);
+            border: 1px solid #4facfe;
+            box-shadow: 0 0 10px rgba(79, 172, 254, 0.3);
+        }
+
+        .rank-num {
+            width: 40px;
+            font-weight: bold;
+            color: #a8d0e6;
+        }
+        
+        .rank-1 .rank-num { color: #ffd700; text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+        .rank-2 .rank-num { color: #c0c0c0; }
+        .rank-3 .rank-num { color: #cd7f32; }
+
+        .rank-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: left;
+        }
+
+        .rank-score {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .close-btn {
+            margin-top: 20px;
+            background: #444;
+            padding: 10px 30px;
+            font-size: 20px;
+            animation: none;
+        }
+
+        #rank-btn {
+            margin-top: 10px;
+            background: linear-gradient(to bottom, #4facfe, #00f2fe);
+            padding: 10px 30px;
+            font-size: 20px;
+            box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4);
+            animation: none;
+        }
+
+        /* Mini Leaderboard on Game Over */
+        .mini-leaderboard {
+            width: 90%;
+            max-width: 400px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .mini-leaderboard h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #a8d0e6;
+        }
+
         @media (max-width: 480px) {
             h1 { font-size: 32px; }
             .btn { padding: 12px 30px; font-size: 20px; }
+            #nickname-input { font-size: 18px; }
         }
     </style>
 </head>
@@ -210,30 +359,76 @@
         </div>
     </div>
 
-    <div id="start-screen" class="screen">
+    <!-- Nickname Screen -->
+    <div id="nickname-screen" class="screen hidden">
+        <h1>이름을 알려줘! 🐠</h1>
+        <h2>바다 모험에 사용할 이름이야</h2>
+        <div class="input-group">
+            <input type="text" id="nickname-input" placeholder="닉네임 입력 (2-8자)" maxlength="8">
+            <div id="nickname-error"></div>
+        </div>
+        <button class="btn" id="nickname-submit-btn">시작하기!</button>
+    </div>
+
+    <div id="start-screen" class="screen hidden">
         <h1>바다 속 보물찾기 🌊</h1>
-        <h2>보물을 모으고 장애물을 피하세요!</h2>
+        <h2 id="greeting-msg">보물을 모으고 장애물을 피하세요!</h2>
         <button class="btn" id="start-btn">게임 시작!</button>
-        <div class="high-score">최고 기록: <span id="start-high-score">0</span></div>
+        <button class="btn" id="rank-btn">🏆 랭킹</button>
+        <div class="high-score">내 최고 기록: <span id="start-high-score">0</span></div>
     </div>
 
     <div id="game-over-screen" class="screen hidden">
         <h1>게임 오버! 😢</h1>
         <h2 id="final-score-text">점수: 0</h2>
         <div id="new-record-msg" style="display:none; color: #ffd700; font-size: 20px; margin-bottom: 15px;">🏆 새로운 최고 기록! 🏆</div>
+        
+        <div class="mini-leaderboard">
+            <h3>🏆 TOP 5</h3>
+            <div id="mini-leaderboard-list" class="leaderboard-list" style="height: auto; max-height: 200px;"></div>
+        </div>
+
         <button class="btn" id="restart-btn">다시 하기</button>
-        <div class="high-score">최고 기록: <span id="end-high-score">0</span></div>
+        <div class="high-score">내 최고 기록: <span id="end-high-score">0</span></div>
+    </div>
+
+    <!-- Leaderboard Screen -->
+    <div id="leaderboard-screen" class="screen hidden">
+        <h1>🏆 전체 랭킹</h1>
+        <div class="leaderboard-container">
+            <div class="leaderboard-list" id="full-leaderboard-list">
+                <!-- Items will be injected here -->
+            </div>
+        </div>
+        <button class="btn close-btn" id="close-leaderboard-btn">닫기</button>
     </div>
 </div>
 
 <script>
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyDR-gQUAj57D0ychSZ6LMKAMgW307ltOSI",
+    authDomain: "ocean-game-370ac.firebaseapp.com",
+    databaseURL: "https://ocean-game-370ac-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ocean-game-370ac",
+    storageBucket: "ocean-game-370ac.firebasestorage.app",
+    messagingSenderId: "905935892280",
+    appId: "1:905935892280:web:36827c782977ee41375bcd"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+// Game Variables
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const uiLayer = document.getElementById('ui-layer');
 
 let gameState = 'MENU';
 let score = 0;
-let highScore = localStorage.getItem('oceanTreasureHighScore') || 0;
+let highScore = 0;
 let lives = 3;
 let gameTime = 0;
 let difficultyLevel = 1;
@@ -260,6 +455,9 @@ const SPAWN_RATE_BASE = 60;
 let currentSpawnRate = SPAWN_RATE_BASE;
 let spawnTimer = 0;
 
+// User Data
+let currentUser = null;
+
 const ITEM_TYPES = {
     SHELL: { type: 'treasure', emoji: '🐚', score: 10, weight: 30 },
     OYSTER: { type: 'treasure', emoji: '🦪', score: 15, weight: 25 },
@@ -277,6 +475,7 @@ const ITEM_TYPES = {
     SHIELD: { type: 'powerup', emoji: '🛡️', effect: 'SHIELD', duration: 600, weight: 3 }
 };
 
+// Initialization
 function init() {
     resize();
     window.addEventListener('resize', resize);
@@ -294,14 +493,164 @@ function init() {
 
     document.getElementById('start-btn').addEventListener('click', startGame);
     document.getElementById('restart-btn').addEventListener('click', startGame);
-
-    updateHighScoreDisplay();
     
-    requestAnimationFrame(gameLoop);
+    // New Event Listeners
+    document.getElementById('nickname-submit-btn').addEventListener('click', registerNickname);
+    document.getElementById('rank-btn').addEventListener('click', () => showLeaderboard(true));
+    document.getElementById('close-leaderboard-btn').addEventListener('click', () => showLeaderboard(false));
 
+    // Background bubbles
     for(let i=0; i<20; i++) {
         bubbles.push(createBubble(true));
     }
+
+    // Check User Session
+    checkUserSession();
+    
+    requestAnimationFrame(gameLoop);
+}
+
+function checkUserSession() {
+    const localData = localStorage.getItem('oceanPlayer');
+    if (localData) {
+        currentUser = JSON.parse(localData);
+        highScore = currentUser.highScore || 0;
+        
+        // Sync with Firebase to get latest high score
+        db.ref('players/' + currentUser.uid).once('value').then(snapshot => {
+            const data = snapshot.val();
+            if (data) {
+                if (data.highScore > highScore) {
+                    highScore = data.highScore;
+                    currentUser.highScore = highScore;
+                    localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+                }
+            }
+            updateStartScreen();
+        });
+        
+        showScreen('start-screen');
+    } else {
+        showScreen('nickname-screen');
+    }
+}
+
+function updateStartScreen() {
+    if (currentUser) {
+        document.getElementById('greeting-msg').innerText = `안녕, ${currentUser.nickname}! 🤿`;
+        document.getElementById('start-high-score').innerText = highScore.toLocaleString();
+    }
+}
+
+function registerNickname() {
+    const input = document.getElementById('nickname-input');
+    const errorMsg = document.getElementById('nickname-error');
+    const nickname = input.value.trim();
+    
+    // Validation
+    if (nickname.length < 2 || nickname.length > 8) {
+        errorMsg.innerText = "2~8글자로 입력해주세요!";
+        return;
+    }
+    
+    const regex = /^[a-zA-Z0-9가-힣]+$/;
+    if (!regex.test(nickname)) {
+        errorMsg.innerText = "특수문자나 공백은 안돼요!";
+        return;
+    }
+
+    errorMsg.innerText = "확인 중...";
+    
+    const nicknameLower = nickname.toLowerCase();
+    
+    // Check uniqueness
+    db.ref('nicknames/' + nicknameLower).once('value').then(snapshot => {
+        if (snapshot.exists()) {
+            errorMsg.innerText = "이미 사용 중인 이름이에요 😅";
+        } else {
+            // Register
+            auth.signInAnonymously().then(userCredential => {
+                const uid = userCredential.user.uid;
+                const playerData = {
+                    nickname: nickname,
+                    highScore: 0,
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                // Atomic update
+                const updates = {};
+                updates['/players/' + uid] = playerData;
+                updates['/nicknames/' + nicknameLower] = { uid: uid };
+                
+                db.ref().update(updates).then(() => {
+                    currentUser = { uid: uid, nickname: nickname, highScore: 0 };
+                    localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+                    highScore = 0;
+                    updateStartScreen();
+                    showScreen('start-screen');
+                });
+            }).catch(error => {
+                console.error(error);
+                errorMsg.innerText = "오류가 발생했어요. 다시 시도해주세요.";
+            });
+        }
+    });
+}
+
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+    const screen = document.getElementById(screenId);
+    if (screen) screen.classList.remove('hidden');
+}
+
+function showLeaderboard(show) {
+    const el = document.getElementById('leaderboard-screen');
+    if (show) {
+        el.classList.remove('hidden');
+        fetchLeaderboard('full-leaderboard-list', 20);
+    } else {
+        el.classList.add('hidden');
+    }
+}
+
+function fetchLeaderboard(containerId, limit) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '<div style="text-align:center; padding:20px;">로딩 중... 🌊</div>';
+    
+    db.ref('players').orderByChild('highScore').limitToLast(limit).once('value').then(snapshot => {
+        const players = [];
+        snapshot.forEach(child => {
+            players.push(child.val());
+        });
+        players.reverse(); // Descending order
+        
+        container.innerHTML = '';
+        
+        if (players.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:20px;">아직 랭킹이 없어요!</div>';
+            return;
+        }
+
+        players.forEach((p, index) => {
+            const rank = index + 1;
+            const isMe = currentUser && p.nickname === currentUser.nickname; // Simple check
+            
+            const div = document.createElement('div');
+            div.className = `rank-item rank-${rank} ${isMe ? 'me' : ''}`;
+            
+            let rankDisplay = rank;
+            if (rank === 1) rankDisplay = '🥇';
+            if (rank === 2) rankDisplay = '🥈';
+            if (rank === 3) rankDisplay = '🥉';
+            
+            div.innerHTML = `
+                <div class="rank-num">${rankDisplay}</div>
+                <div class="rank-name">${p.nickname}</div>
+                <div class="rank-score">${p.highScore.toLocaleString()}</div>
+            `;
+            container.appendChild(div);
+        });
+    });
 }
 
 function resize() {
@@ -337,8 +686,7 @@ function startGame() {
     diver.y = getHeight() - 100;
     diver.targetX = getWidth() / 2;
 
-    document.getElementById('start-screen').classList.add('hidden');
-    document.getElementById('game-over-screen').classList.add('hidden');
+    document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
     updateHUD();
 }
 
@@ -348,20 +696,29 @@ function gameOver() {
     let isNewRecord = false;
     if (score > highScore) {
         highScore = score;
-        localStorage.setItem('oceanTreasureHighScore', highScore);
         isNewRecord = true;
+        
+        // Update Local
+        if (currentUser) {
+            currentUser.highScore = highScore;
+            localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+            
+            // Update Firebase
+            db.ref('players/' + currentUser.uid).update({
+                highScore: highScore,
+                updatedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
     }
 
-    document.getElementById('final-score-text').innerText = `점수: ${score}`;
+    document.getElementById('final-score-text').innerText = `점수: ${score.toLocaleString()}`;
     document.getElementById('new-record-msg').style.display = isNewRecord ? 'block' : 'none';
-    updateHighScoreDisplay();
+    document.getElementById('end-high-score').innerText = highScore.toLocaleString();
     
-    document.getElementById('game-over-screen').classList.remove('hidden');
-}
-
-function updateHighScoreDisplay() {
-    document.getElementById('start-high-score').innerText = highScore;
-    document.getElementById('end-high-score').innerText = highScore;
+    showScreen('game-over-screen');
+    
+    // Show mini leaderboard
+    fetchLeaderboard('mini-leaderboard-list', 5);
 }
 
 function handleTouchStart(e) {
