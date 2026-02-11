@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>바다 속 보물찾기 🌊</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ocean Treasure Hunt | 바다 속 보물찾기 🌊</title>
     
     <!-- Firebase Compat SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -27,6 +27,10 @@
             background-color: #001e3c;
             font-family: 'Jua', sans-serif;
             color: white;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
         }
 
         #game-container {
@@ -61,7 +65,7 @@
             top: 0;
             left: 0;
             width: 100%;
-            padding: 15px;
+            padding: calc(15px + env(safe-area-inset-top)) 15px 15px 15px;
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
@@ -108,7 +112,42 @@
         }
 
         .hud-right {
-            font-size: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .hud-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .hud-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(0, 30, 60, 0.5);
+            border: 1.5px solid rgba(79, 172, 254, 0.4);
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 14px;
+            letter-spacing: -2px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: transform 0.1s, background 0.2s;
+        }
+
+        .hud-btn:active {
+            transform: scale(0.9);
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .hud-lives {
+            font-size: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
         .screen {
@@ -356,29 +395,29 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
-        #music-btn {
-            position: fixed;
-            top: 15px;
-            right: 60px;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: rgba(0, 0, 0, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            color: white;
-            font-size: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            z-index: 999;
-            pointer-events: auto;
-            transition: transform 0.1s, background 0.2s;
+        #pause-btn {
+            display: none;
         }
-        
-        #music-btn:active {
-            transform: scale(0.9);
-            background: rgba(0, 0, 0, 0.5);
+
+        #pause-screen {
+            z-index: 25;
+            background: rgba(0, 10, 25, 0.75);
+        }
+
+        #privacy-link {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #888;
+            text-decoration: underline;
+            pointer-events: auto;
+            animation: none;
+        }
+
+        #offline-indicator {
+            font-size: 12px;
+            color: #ffb86b;
+            margin-top: 4px;
+            display: none;
         }
     </style>
 </head>
@@ -386,69 +425,75 @@
 
 <div id="game-container">
     <canvas id="gameCanvas"></canvas>
-    <div id="music-btn">🔊</div>
 
     <div id="hud">
         <div class="hud-left">
-            <div class="score-box">점수: <span id="score">0</span></div>
+            <div class="score-box"><span id="score-label"></span> <span id="score">0</span></div>
             <div id="combo-display" class="combo-box">COMBO x<span id="combo-count">0</span></div>
+            <div id="offline-indicator"></div>
         </div>
         <div id="powerup-indicator" class="hud-center"></div>
         <div class="hud-right">
-            <span id="lives">❤️❤️❤️</span>
+            <div class="hud-buttons">
+                <div id="music-btn" class="hud-btn">🔊</div>
+                <div id="pause-btn" class="hud-btn">❚❚</div>
+            </div>
+            <div class="hud-lives"><span id="lives">❤️❤️❤️</span></div>
         </div>
     </div>
 
     <!-- Nickname Screen -->
     <div id="nickname-screen" class="screen hidden">
-        <h1>이름을 알려줘! 🐠</h1>
-        <h2>바다 모험에 사용할 이름이야</h2>
+        <h1 id="nickname-title"></h1>
+        <h2 id="nickname-subtitle"></h2>
         <div class="input-group">
-            <input type="text" id="nickname-input" placeholder="닉네임 입력 (2-8자)" maxlength="8">
+            <input type="text" id="nickname-input" placeholder="" maxlength="8">
             <div id="nickname-error"></div>
         </div>
-        <button class="btn" id="nickname-submit-btn">시작하기!</button>
+        <button class="btn" id="nickname-submit-btn"></button>
     </div>
 
     <div id="start-screen" class="screen hidden">
-        <h1>바다 속 보물찾기 🌊</h1>
-        <h2 id="greeting-msg">보물을 모으고 장애물을 피하세요!</h2>
+        <h1 id="start-title"></h1>
+        <h2 id="greeting-msg"></h2>
         
-        <div class="how-to-play">
-            🤿 드래그로 잠수부를 움직여요<br>
-            🐚⭐💎 보물을 모으면 점수 UP!<br>
-            🪼🦈 장애물을 피하세요!<br>
-            🧲⏱️🛡️ 파워업을 놓치지 마세요!
+        <div class="how-to-play" id="how-to-play-text">
         </div>
 
-        <button class="btn" id="start-btn">게임 시작!</button>
-        <button class="btn" id="rank-btn">🏆 랭킹</button>
-        <div class="high-score">내 최고 기록: <span id="start-high-score">0</span></div>
+        <button class="btn" id="start-btn"></button>
+        <button class="btn" id="rank-btn"></button>
+        <div class="high-score"><span id="start-high-score-label"></span><span id="start-high-score">0</span></div>
+        <a id="privacy-link" href="privacy.html"></a>
+    </div>
+
+    <div id="pause-screen" class="screen hidden">
+        <h1 id="pause-title"></h1>
+        <button class="btn" id="resume-btn"></button>
     </div>
 
     <div id="game-over-screen" class="screen hidden">
-        <h1>게임 오버! 😢</h1>
-        <h2 id="final-score-text">점수: 0</h2>
-        <div id="new-record-msg" style="display:none; color: #ffd700; font-size: 20px; margin-bottom: 15px;">🏆 새로운 최고 기록! 🏆</div>
+        <h1 id="game-over-title"></h1>
+        <h2 id="final-score-text"></h2>
+        <div id="new-record-msg" style="display:none; color: #ffd700; font-size: 20px; margin-bottom: 15px;"></div>
         
         <div class="mini-leaderboard">
-            <h3>🏆 TOP 5</h3>
+            <h3 id="mini-leaderboard-title"></h3>
             <div id="mini-leaderboard-list" class="leaderboard-list" style="height: auto; max-height: 200px;"></div>
         </div>
 
-        <button class="btn" id="restart-btn">다시 하기</button>
-        <div class="high-score">내 최고 기록: <span id="end-high-score">0</span></div>
+        <button class="btn" id="restart-btn"></button>
+        <div class="high-score"><span id="end-high-score-label"></span><span id="end-high-score">0</span></div>
     </div>
 
     <!-- Leaderboard Screen -->
     <div id="leaderboard-screen" class="screen hidden">
-        <h1>🏆 전체 랭킹</h1>
+        <h1 id="leaderboard-title"></h1>
         <div class="leaderboard-container">
             <div class="leaderboard-list" id="full-leaderboard-list">
                 <!-- Items will be injected here -->
             </div>
         </div>
-        <button class="btn close-btn" id="close-leaderboard-btn">닫기</button>
+        <button class="btn close-btn" id="close-leaderboard-btn"></button>
     </div>
 </div>
 
@@ -468,6 +513,154 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
+
+// i18n System
+const TEXTS = {
+    ko: {
+        documentTitle: 'Ocean Treasure Hunt | 바다 속 보물찾기 🌊',
+        nicknameTitle: '이름을 알려줘! 🐠',
+        nicknameSubtitle: '바다 모험에 사용할 이름이야',
+        nicknamePlaceholder: '닉네임 입력 (2-8자)',
+        nicknameSubmit: '시작하기!',
+        gameTitle: '바다 속 보물찾기 🌊',
+        greetingDefault: '보물을 모으고 장애물을 피하세요!',
+        howToPlayHtml: '🤿 드래그로 잠수부를 움직여요<br>🐚⭐💎 보물을 모으면 점수 UP!<br>🪼🦈 장애물을 피하세요!<br>🧲⏱️🛡️ 파워업을 놓치지 마세요!',
+        startButton: '게임 시작!',
+        rankButton: '🏆 랭킹',
+        highScoreLabel: '내 최고 기록: ',
+        gameOverTitle: '게임 오버! 😢',
+        restartButton: '다시 하기',
+        leaderboardTitle: '🏆 전체 랭킹',
+        closeButton: '닫기',
+        miniLeaderboardTitle: '🏆 TOP 5',
+        scoreLabel: '점수:',
+        newRecord: '🏆 새로운 최고 기록! 🏆',
+        comboLegendary: '전설! 🌟',
+        comboAmazing: '대박! 🔥',
+        comboBest: '최고! ⚡',
+        comboGood: '굿! ✨',
+        powerupMagnetActive: '🧲 자석 활성화',
+        powerupSlowActive: '⏱️ 시간 감속',
+        powerupShieldActive: '🛡️ 방어막',
+        powerupFeverActive: '🌈 피버 타임!',
+        floatingShieldBlock: '방어!',
+        floatingOuch: '앗!',
+        floatingMagnet: '자석!',
+        floatingSlow: '슬로우!',
+        floatingShield: '방어막!',
+        errNicknameLength: '2~8글자로 입력해주세요!',
+        errNicknameInvalidChars: '특수문자나 공백은 안돼요!',
+        errChecking: '확인 중...',
+        errAuthChecking: '서버 연결을 확인 중이에요. 잠시 후 다시 시도해주세요.',
+        errNicknameTaken: '이미 사용 중인 이름이에요 😅',
+        errSaveFailed: '저장 중 오류가 발생했어요. 다시 시도해주세요.',
+        errCheckFailed: '확인 중 오류가 발생했어요. 다시 시도해주세요.',
+        errFirebaseAnonDisabled: '⚠️ Firebase 익명 로그인이 비활성화 상태입니다',
+        errServerConnection: '⚠️ 서버 연결에 문제가 있어요',
+        loading: '로딩 중... 🌊',
+        offlineModeRanking: '오프라인 모드 - 랭킹을 불러올 수 없어요',
+        offlineIndicator: '오프라인',
+        rankingEmpty: '아직 랭킹이 없어요!',
+        rankingLoadFailed: '랭킹을 불러오는데 실패했어요',
+        pauseTitle: '일시정지',
+        resumeButton: '계속하기',
+        privacyPolicy: '개인정보 처리방침',
+        greetingWithName: '안녕, {nickname}! 🤿',
+        finalScore: '점수: {score}'
+    },
+    en: {
+        documentTitle: 'Ocean Treasure Hunt | 바다 속 보물찾기 🌊',
+        nicknameTitle: "What's your name? 🐠",
+        nicknameSubtitle: 'This is the name for your sea adventure',
+        nicknamePlaceholder: 'Enter nickname (2-8 chars)',
+        nicknameSubmit: 'Let\'s go!',
+        gameTitle: 'Ocean Treasure Hunt 🌊',
+        greetingDefault: 'Collect treasures and dodge obstacles!',
+        howToPlayHtml: '🤿 Drag to move your diver<br>🐚⭐💎 Grab treasures for score boosts!<br>🪼🦈 Watch out for obstacles!<br>🧲⏱️🛡️ Catch power-ups whenever you can!',
+        startButton: 'Start Game!',
+        rankButton: '🏆 Rankings',
+        highScoreLabel: 'Best Score: ',
+        gameOverTitle: 'Game Over! 😢',
+        restartButton: 'Play Again',
+        leaderboardTitle: '🏆 Global Rankings',
+        closeButton: 'Close',
+        miniLeaderboardTitle: '🏆 TOP 5',
+        scoreLabel: 'Score:',
+        newRecord: '🏆 New high score! 🏆',
+        comboLegendary: 'Legendary! 🌟',
+        comboAmazing: 'Awesome! 🔥',
+        comboBest: 'Epic! ⚡',
+        comboGood: 'Nice! ✨',
+        powerupMagnetActive: '🧲 Magnet Active',
+        powerupSlowActive: '⏱️ Time Slow',
+        powerupShieldActive: '🛡️ Shield',
+        powerupFeverActive: '🌈 Fever Time!',
+        floatingShieldBlock: 'Blocked!',
+        floatingOuch: 'Oops!',
+        floatingMagnet: 'Magnet!',
+        floatingSlow: 'Slow!',
+        floatingShield: 'Shield!',
+        errNicknameLength: 'Please enter 2-8 characters!',
+        errNicknameInvalidChars: 'No spaces or special characters!',
+        errChecking: 'Checking...',
+        errAuthChecking: 'Checking server connection. Please try again in a moment.',
+        errNicknameTaken: 'That name is already taken 😅',
+        errSaveFailed: 'Something went wrong while saving. Please try again.',
+        errCheckFailed: 'Something went wrong while checking. Please try again.',
+        errFirebaseAnonDisabled: '⚠️ Firebase anonymous sign-in is disabled',
+        errServerConnection: '⚠️ There is a server connection issue',
+        loading: 'Loading... 🌊',
+        offlineModeRanking: 'Offline mode - rankings are unavailable',
+        offlineIndicator: 'Offline',
+        rankingEmpty: 'No rankings yet!',
+        rankingLoadFailed: 'Failed to load rankings',
+        pauseTitle: 'Paused',
+        resumeButton: 'Resume',
+        privacyPolicy: 'Privacy Policy',
+        greetingWithName: 'Hi, {nickname}! 🤿',
+        finalScore: 'Score: {score}'
+    }
+};
+
+let currentLang = (navigator.language || navigator.userLanguage || 'en').startsWith('ko') ? 'ko' : 'en';
+
+function t(key) {
+    return TEXTS[currentLang][key] || TEXTS.en[key] || key;
+}
+
+function initLanguage() {
+    document.documentElement.lang = currentLang;
+    document.title = t('documentTitle');
+
+    document.getElementById('score-label').innerText = t('scoreLabel');
+    document.getElementById('nickname-title').innerText = t('nicknameTitle');
+    document.getElementById('nickname-subtitle').innerText = t('nicknameSubtitle');
+    document.getElementById('nickname-input').placeholder = t('nicknamePlaceholder');
+    document.getElementById('nickname-submit-btn').innerText = t('nicknameSubmit');
+
+    document.getElementById('start-title').innerText = t('gameTitle');
+    document.getElementById('greeting-msg').innerText = t('greetingDefault');
+    document.getElementById('how-to-play-text').innerHTML = t('howToPlayHtml');
+    document.getElementById('start-btn').innerText = t('startButton');
+    document.getElementById('rank-btn').innerText = t('rankButton');
+    document.getElementById('start-high-score-label').innerText = t('highScoreLabel');
+    document.getElementById('privacy-link').innerText = t('privacyPolicy');
+
+    document.getElementById('game-over-title').innerText = t('gameOverTitle');
+    document.getElementById('final-score-text').innerText = t('finalScore').replace('{score}', '0');
+    document.getElementById('new-record-msg').innerText = t('newRecord');
+    document.getElementById('mini-leaderboard-title').innerText = t('miniLeaderboardTitle');
+    document.getElementById('restart-btn').innerText = t('restartButton');
+    document.getElementById('end-high-score-label').innerText = t('highScoreLabel');
+
+    document.getElementById('leaderboard-title').innerText = t('leaderboardTitle');
+    document.getElementById('close-leaderboard-btn').innerText = t('closeButton');
+
+    document.getElementById('pause-title').innerText = t('pauseTitle');
+    document.getElementById('resume-btn').innerText = t('resumeButton');
+    document.getElementById('offline-indicator').innerText = `⚡ ${t('offlineIndicator')}`;
+    updateConnectionIndicator();
+}
 
 // Game Variables
 const canvas = document.getElementById('gameCanvas');
@@ -528,6 +721,11 @@ let audioCtx = null;
 let musicEnabled = localStorage.getItem('oceanMusicEnabled') !== 'false';
 let musicStarted = false;
 let melodyTimer = null;
+let droneNodes = [];
+
+const PENDING_NICKNAME_KEY = 'pendingNicknameSync';
+const PENDING_SCORE_KEY = 'pendingScoreSync';
+const LEADERBOARD_CACHE_KEY = 'cachedLeaderboard';
 
 function initAudio() {
     if (audioCtx) return;
@@ -548,12 +746,27 @@ function startMusic() {
     
     musicStarted = true;
     scheduleNote();
-    playDrone();
+    if (droneNodes.length === 0) {
+        playDrone();
+    }
 }
 
 function stopMusic() {
     if (melodyTimer) clearTimeout(melodyTimer);
     musicStarted = false;
+    if (droneNodes.length > 0) {
+        droneNodes.forEach(node => {
+            try {
+                node.osc1.stop();
+                node.osc2.stop();
+            } catch (e) {}
+            node.osc1.disconnect();
+            node.osc2.disconnect();
+            node.gain.disconnect();
+            node.filter.disconnect();
+        });
+        droneNodes = [];
+    }
     if (audioCtx) audioCtx.suspend();
 }
 
@@ -604,6 +817,8 @@ function playDrone() {
     osc2.connect(gain);
     gain.connect(filter);
     filter.connect(audioCtx.destination);
+
+    droneNodes.push({ osc1, osc2, gain, filter });
     
     osc1.start();
     osc2.start();
@@ -636,6 +851,11 @@ function playTone(freq, time, duration, vol) {
     
     osc.connect(gain);
     gain.connect(audioCtx.destination);
+
+    osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+    };
     
     osc.start(time);
     osc.stop(time + duration);
@@ -651,6 +871,11 @@ function playSound(type) {
     
     osc.connect(gain);
     gain.connect(audioCtx.destination);
+
+    osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+    };
     
     if (type === 'collect') {
         osc.type = 'sine';
@@ -681,6 +906,7 @@ function playSound(type) {
 
 // Initialization
 function init() {
+    initLanguage();
     resize();
     window.addEventListener('resize', resize);
     
@@ -702,6 +928,13 @@ function init() {
     document.getElementById('nickname-submit-btn').addEventListener('click', registerNickname);
     document.getElementById('rank-btn').addEventListener('click', () => showLeaderboard(true));
     document.getElementById('close-leaderboard-btn').addEventListener('click', () => showLeaderboard(false));
+    document.getElementById('pause-btn').addEventListener('click', pauseGame);
+    document.getElementById('resume-btn').addEventListener('click', resumeGame);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && gameState === 'PLAYING') {
+            pauseGame();
+        }
+    });
 
     // Audio Init
     document.addEventListener('click', initAudio, { once: true });
@@ -719,25 +952,43 @@ function init() {
 
     // Check User Session
     checkUserSession();
+    setupConnectionListener();
     
     requestAnimationFrame(gameLoop);
 }
 
 let firebaseReady = false;
 
+function setupConnectionListener() {
+    db.ref('.info/connected').on('value', snapshot => {
+        const connected = !!snapshot.val();
+        firebaseReady = connected && !!auth.currentUser;
+        updateConnectionIndicator();
+        if (firebaseReady) {
+            syncPendingData();
+        }
+    });
+}
+
+function updateConnectionIndicator() {
+    const indicator = document.getElementById('offline-indicator');
+    if (!indicator) return;
+    indicator.style.display = (!firebaseReady && gameState === 'PLAYING') ? 'block' : 'none';
+}
+
 function checkUserSession() {
     // Listen for auth state changes (most reliable way)
     auth.onAuthStateChanged(user => {
         if (user) {
             firebaseReady = true;
-            console.log('Firebase auth OK, uid:', user.uid);
+            updateConnectionIndicator();
             onAuthReady(user.uid);
+            syncPendingData();
         }
     });
 
     // Trigger anonymous sign-in
     auth.signInAnonymously().catch(error => {
-        console.error('Anonymous auth failed:', error.code, error.message);
         // Show nickname screen anyway (offline mode)
         const localData = localStorage.getItem('oceanPlayer');
         if (localData) {
@@ -749,15 +1000,14 @@ function checkUserSession() {
             showScreen('nickname-screen');
             document.getElementById('nickname-error').innerText = 
                 error.code === 'auth/operation-not-allowed' 
-                ? '⚠️ Firebase 익명 로그인이 비활성화 상태입니다' 
-                : '⚠️ 서버 연결에 문제가 있어요';
+                ? t('errFirebaseAnonDisabled')
+                : t('errServerConnection');
         }
     });
 
     // Timeout fallback - if auth doesn't respond in 5 seconds, go offline
     setTimeout(() => {
         if (!firebaseReady) {
-            console.warn('Firebase auth timeout, going offline');
             const localData = localStorage.getItem('oceanPlayer');
             if (localData) {
                 currentUser = JSON.parse(localData);
@@ -798,7 +1048,7 @@ function onAuthReady(uid) {
 
 function updateStartScreen() {
     if (currentUser) {
-        document.getElementById('greeting-msg').innerText = `안녕, ${currentUser.nickname}! 🤿`;
+        document.getElementById('greeting-msg').innerText = t('greetingWithName').replace('{nickname}', currentUser.nickname);
         document.getElementById('start-high-score').innerText = highScore.toLocaleString();
     }
 }
@@ -810,23 +1060,28 @@ function registerNickname() {
     
     // Validation
     if (nickname.length < 2 || nickname.length > 8) {
-        errorMsg.innerText = "2~8글자로 입력해주세요!";
+        errorMsg.innerText = t('errNicknameLength');
         return;
     }
     
     const regex = /^[a-zA-Z0-9가-힣]+$/;
     if (!regex.test(nickname)) {
-        errorMsg.innerText = "특수문자나 공백은 안돼요!";
+        errorMsg.innerText = t('errNicknameInvalidChars');
         return;
     }
 
-    errorMsg.innerText = "확인 중...";
+    errorMsg.innerText = t('errChecking');
     
     const nicknameLower = nickname.toLowerCase();
     
     if (!firebaseReady || !auth.currentUser) {
-        errorMsg.innerText = "서버 연결을 확인 중이에요. 잠시 후 다시 시도해주세요.";
-        // Retry auth in background
+        currentUser = { uid: null, nickname: nickname, highScore: 0 };
+        localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+        localStorage.setItem(PENDING_NICKNAME_KEY, JSON.stringify({ nickname: nickname, nicknameLower: nicknameLower }));
+        highScore = 0;
+        updateStartScreen();
+        showScreen('start-screen');
+        errorMsg.innerText = '';
         auth.signInAnonymously().catch(() => {});
         return;
     }
@@ -836,7 +1091,7 @@ function registerNickname() {
     // Already authenticated from checkUserSession → safe to read DB
     db.ref('nicknames/' + nicknameLower).once('value').then(snapshot => {
         if (snapshot.exists()) {
-            errorMsg.innerText = "이미 사용 중인 이름이에요 😅";
+            errorMsg.innerText = t('errNicknameTaken');
         } else {
             const playerData = {
                 nickname: nickname,
@@ -851,18 +1106,49 @@ function registerNickname() {
             db.ref().update(updates).then(() => {
                 currentUser = { uid: uid, nickname: nickname, highScore: 0 };
                 localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+                localStorage.removeItem(PENDING_NICKNAME_KEY);
                 highScore = 0;
                 updateStartScreen();
                 showScreen('start-screen');
-            }).catch(error => {
-                console.error(error);
-                errorMsg.innerText = "저장 중 오류가 발생했어요. 다시 시도해주세요.";
+            }).catch(() => {
+                currentUser = { uid: null, nickname: nickname, highScore: 0 };
+                localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+                localStorage.setItem(PENDING_NICKNAME_KEY, JSON.stringify({ nickname: nickname, nicknameLower: nicknameLower }));
+                highScore = 0;
+                updateStartScreen();
+                showScreen('start-screen');
             });
         }
-    }).catch(error => {
-        console.error(error);
-        errorMsg.innerText = "확인 중 오류가 발생했어요. 다시 시도해주세요.";
+    }).catch(() => {
+        currentUser = { uid: null, nickname: nickname, highScore: 0 };
+        localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+        localStorage.setItem(PENDING_NICKNAME_KEY, JSON.stringify({ nickname: nickname, nicknameLower: nicknameLower }));
+        highScore = 0;
+        updateStartScreen();
+        showScreen('start-screen');
     });
+}
+
+function pauseGame() {
+    if (gameState !== 'PLAYING') return;
+    gameState = 'PAUSED';
+    showScreen('pause-screen');
+    updateConnectionIndicator();
+    updatePauseButtonVisibility();
+}
+
+function resumeGame() {
+    if (gameState !== 'PAUSED') return;
+    gameState = 'PLAYING';
+    document.getElementById('pause-screen').classList.add('hidden');
+    updateConnectionIndicator();
+    updatePauseButtonVisibility();
+}
+
+function updatePauseButtonVisibility() {
+    const pauseBtn = document.getElementById('pause-btn');
+    if (!pauseBtn) return;
+    pauseBtn.style.display = gameState === 'PLAYING' ? 'flex' : 'none';
 }
 
 function showScreen(screenId) {
@@ -883,10 +1169,15 @@ function showLeaderboard(show) {
 
 function fetchLeaderboard(containerId, limit) {
     const container = document.getElementById(containerId);
-    container.innerHTML = '<div style="text-align:center; padding:20px;">로딩 중... 🌊</div>';
+    container.innerHTML = `<div style="text-align:center; padding:20px;">${t('loading')}</div>`;
+    const cachedPlayers = getCachedLeaderboard(limit);
     
     if (!firebaseReady) {
-        container.innerHTML = '<div style="text-align:center; padding:20px;">오프라인 모드 - 랭킹을 불러올 수 없어요</div>';
+        if (cachedPlayers.length > 0) {
+            renderLeaderboard(container, cachedPlayers, true);
+        } else {
+            container.innerHTML = `<div style="text-align:center; padding:20px;">${t('offlineModeRanking')}</div>`;
+        }
         return;
     }
 
@@ -896,37 +1187,86 @@ function fetchLeaderboard(containerId, limit) {
             players.push(child.val());
         });
         players.reverse(); // Descending order
-        
-        container.innerHTML = '';
-        
-        if (players.length === 0) {
-            container.innerHTML = '<div style="text-align:center; padding:20px;">아직 랭킹이 없어요!</div>';
-            return;
+        cacheLeaderboard(players);
+        renderLeaderboard(container, players, false);
+    }).catch(() => {
+        if (cachedPlayers.length > 0) {
+            renderLeaderboard(container, cachedPlayers, true);
+        } else {
+            container.innerHTML = `<div style="text-align:center; padding:20px;">${t('rankingLoadFailed')}</div>`;
         }
-
-        players.forEach((p, index) => {
-            const rank = index + 1;
-            const isMe = currentUser && p.nickname === currentUser.nickname; // Simple check
-            
-            const div = document.createElement('div');
-            div.className = `rank-item rank-${rank} ${isMe ? 'me' : ''}`;
-            
-            let rankDisplay = rank;
-            if (rank === 1) rankDisplay = '🥇';
-            if (rank === 2) rankDisplay = '🥈';
-            if (rank === 3) rankDisplay = '🥉';
-            
-            div.innerHTML = `
-                <div class="rank-num">${rankDisplay}</div>
-                <div class="rank-name">${p.nickname}</div>
-                <div class="rank-score">${p.highScore.toLocaleString()}</div>
-            `;
-            container.appendChild(div);
-        });
-    }).catch(e => {
-        console.error(e);
-        container.innerHTML = '<div style="text-align:center; padding:20px;">랭킹을 불러오는데 실패했어요</div>';
     });
+}
+
+function renderLeaderboard(container, players, showOfflineNotice) {
+    container.innerHTML = '';
+
+    if (showOfflineNotice) {
+        const offlineNotice = document.createElement('div');
+        offlineNotice.style.textAlign = 'center';
+        offlineNotice.style.padding = '8px 0 14px';
+        offlineNotice.innerText = t('offlineModeRanking');
+        container.appendChild(offlineNotice);
+    }
+
+    if (players.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.textAlign = 'center';
+        empty.style.padding = '20px';
+        empty.innerText = t('rankingEmpty');
+        container.appendChild(empty);
+        return;
+    }
+
+    players.forEach((p, index) => {
+        const rank = index + 1;
+        const isMe = currentUser && p.nickname === currentUser.nickname;
+
+        const div = document.createElement('div');
+        div.className = `rank-item rank-${rank} ${isMe ? 'me' : ''}`;
+
+        let rankDisplay = rank;
+        if (rank === 1) rankDisplay = '🥇';
+        if (rank === 2) rankDisplay = '🥈';
+        if (rank === 3) rankDisplay = '🥉';
+
+        div.innerHTML = `
+            <div class="rank-num">${rankDisplay}</div>
+            <div class="rank-name">${p.nickname}</div>
+            <div class="rank-score">${p.highScore.toLocaleString()}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function cacheLeaderboard(players) {
+    const existingRaw = localStorage.getItem(LEADERBOARD_CACHE_KEY);
+    if (!existingRaw) {
+        localStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify(players));
+        return;
+    }
+
+    try {
+        const existing = JSON.parse(existingRaw);
+        if (!Array.isArray(existing) || players.length >= existing.length) {
+            localStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify(players));
+        }
+    } catch (e) {
+        localStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify(players));
+    }
+}
+
+function getCachedLeaderboard(limit) {
+    const raw = localStorage.getItem(LEADERBOARD_CACHE_KEY);
+    if (!raw) return [];
+
+    try {
+        const players = JSON.parse(raw);
+        if (!Array.isArray(players)) return [];
+        return players.slice(0, limit);
+    } catch (e) {
+        return [];
+    }
 }
 
 function resize() {
@@ -964,10 +1304,14 @@ function startGame() {
 
     document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
     updateHUD();
+    updatePauseButtonVisibility();
+    updateConnectionIndicator();
 }
 
 function gameOver() {
     gameState = 'GAMEOVER';
+    updatePauseButtonVisibility();
+    updateConnectionIndicator();
     
     // Play game over sound
     playSound('gameover');
@@ -981,22 +1325,16 @@ function gameOver() {
         if (currentUser) {
             currentUser.highScore = highScore;
             localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+            queuePendingScoreSync(highScore);
             
             // Update Firebase
             if (firebaseReady && currentUser.uid) {
-                try {
-                    db.ref('players/' + currentUser.uid).update({
-                        highScore: highScore,
-                        updatedAt: firebase.database.ServerValue.TIMESTAMP
-                    }).catch(e => console.error("Score update failed", e));
-                } catch (e) {
-                    console.error("Firebase update error", e);
-                }
+                syncScoreToFirebase(highScore);
             }
         }
     }
 
-    document.getElementById('final-score-text').innerText = `점수: ${score.toLocaleString()}`;
+    document.getElementById('final-score-text').innerText = t('finalScore').replace('{score}', score.toLocaleString());
     document.getElementById('new-record-msg').style.display = isNewRecord ? 'block' : 'none';
     document.getElementById('end-high-score').innerText = highScore.toLocaleString();
     
@@ -1230,7 +1568,7 @@ function collectItem(item, index) {
         if (activePowerup === 'SHIELD') {
             activePowerup = null;
             createExplosion(item.x, item.y, 'cyan');
-            showFloatingText("방어!", item.x, item.y, 'cyan');
+            showFloatingText(t('floatingShieldBlock'), item.x, item.y, 'cyan');
         } else if (activePowerup === 'FEVER') {
             score += 50;
             createExplosion(item.x, item.y, 'gold');
@@ -1239,7 +1577,7 @@ function collectItem(item, index) {
             lives--;
             shakeIntensity = 20;
             createExplosion(item.x, item.y, 'red');
-            showFloatingText("앗!", item.x, item.y, 'red');
+            showFloatingText(t('floatingOuch'), item.x, item.y, 'red');
             
             comboCount = 0;
             
@@ -1252,9 +1590,9 @@ function collectItem(item, index) {
         activatePowerup(def.effect);
         createExplosion(item.x, item.y, 'white');
         let text = "";
-        if (def.effect === 'MAGNET') text = "자석!";
-        if (def.effect === 'SLOW') text = "슬로우!";
-        if (def.effect === 'SHIELD') text = "방어막!";
+        if (def.effect === 'MAGNET') text = t('floatingMagnet');
+        if (def.effect === 'SLOW') text = t('floatingSlow');
+        if (def.effect === 'SHIELD') text = t('floatingShield');
         showFloatingText(text, item.x, item.y, '#fff');
     }
     
@@ -1309,10 +1647,10 @@ function updateHUD() {
     if (comboCount > 1) {
         comboEl.classList.add('combo-active');
         let comboText = `x${comboCount}`;
-        if (comboCount >= 20) comboText += " 전설! 🌟";
-        else if (comboCount >= 15) comboText += " 대박! 🔥";
-        else if (comboCount >= 10) comboText += " 최고! ⚡";
-        else if (comboCount >= 5) comboText += " 굿! ✨";
+        if (comboCount >= 20) comboText += ` ${t('comboLegendary')}`;
+        else if (comboCount >= 15) comboText += ` ${t('comboAmazing')}`;
+        else if (comboCount >= 10) comboText += ` ${t('comboBest')}`;
+        else if (comboCount >= 5) comboText += ` ${t('comboGood')}`;
         comboCountEl.innerText = comboText;
     } else {
         comboEl.classList.remove('combo-active');
@@ -1322,10 +1660,10 @@ function updateHUD() {
     if (activePowerup) {
         puEl.style.display = 'block';
         let text = "";
-        if (activePowerup === 'MAGNET') text = "🧲 자석 활성화";
-        if (activePowerup === 'SLOW') text = "⏱️ 시간 감속";
-        if (activePowerup === 'SHIELD') text = "🛡️ 방어막";
-        if (activePowerup === 'FEVER') text = "🌈 피버 타임!";
+        if (activePowerup === 'MAGNET') text = t('powerupMagnetActive');
+        if (activePowerup === 'SLOW') text = t('powerupSlowActive');
+        if (activePowerup === 'SHIELD') text = t('powerupShieldActive');
+        if (activePowerup === 'FEVER') text = t('powerupFeverActive');
         puEl.innerText = text;
     } else {
         puEl.style.display = 'none';
@@ -1490,6 +1828,92 @@ function gameLoop() {
     update();
     draw();
     requestAnimationFrame(gameLoop);
+}
+
+function queuePendingScoreSync(highScoreToSync) {
+    localStorage.setItem(PENDING_SCORE_KEY, JSON.stringify({ highScore: highScoreToSync }));
+}
+
+function syncScoreToFirebase(highScoreToSync) {
+    if (!firebaseReady || !currentUser || !currentUser.uid) {
+        queuePendingScoreSync(highScoreToSync);
+        return;
+    }
+
+    db.ref('players/' + currentUser.uid).update({
+        highScore: highScoreToSync,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+        const pendingRaw = localStorage.getItem(PENDING_SCORE_KEY);
+        if (!pendingRaw) return;
+        const pendingData = JSON.parse(pendingRaw);
+        if (pendingData.highScore <= highScoreToSync) {
+            localStorage.removeItem(PENDING_SCORE_KEY);
+        }
+    }).catch(() => {
+        queuePendingScoreSync(highScoreToSync);
+    });
+}
+
+function syncPendingData() {
+    if (!firebaseReady || !auth.currentUser) return;
+
+    const uid = auth.currentUser.uid;
+    if (currentUser && !currentUser.uid) {
+        currentUser.uid = uid;
+        localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+    }
+
+    const pendingNicknameRaw = localStorage.getItem(PENDING_NICKNAME_KEY);
+    if (pendingNicknameRaw) {
+        try {
+            const pendingNickname = JSON.parse(pendingNicknameRaw);
+            const nickname = pendingNickname.nickname;
+            const nicknameLower = pendingNickname.nicknameLower;
+
+            db.ref('nicknames/' + nicknameLower).once('value').then(snapshot => {
+                if (snapshot.exists() && snapshot.val().uid !== uid) {
+                    return;
+                }
+
+                const playerData = {
+                    nickname: nickname,
+                    highScore: (currentUser && currentUser.highScore) || 0,
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                };
+                const updates = {};
+                updates['/players/' + uid] = playerData;
+                updates['/nicknames/' + nicknameLower] = { uid: uid };
+
+                db.ref().update(updates).then(() => {
+                    if (!currentUser) {
+                        currentUser = { uid: uid, nickname: nickname, highScore: 0 };
+                    } else {
+                        currentUser.uid = uid;
+                        currentUser.nickname = nickname;
+                    }
+                    localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+                    localStorage.removeItem(PENDING_NICKNAME_KEY);
+                    updateStartScreen();
+                }).catch(() => {});
+            }).catch(() => {});
+        } catch (e) {
+            localStorage.removeItem(PENDING_NICKNAME_KEY);
+        }
+    }
+
+    const pendingScoreRaw = localStorage.getItem(PENDING_SCORE_KEY);
+    if (pendingScoreRaw) {
+        try {
+            const pendingScoreData = JSON.parse(pendingScoreRaw);
+            const pendingScore = pendingScoreData.highScore || 0;
+            if (pendingScore > 0) {
+                syncScoreToFirebase(pendingScore);
+            }
+        } catch (e) {
+            localStorage.removeItem(PENDING_SCORE_KEY);
+        }
+    }
 }
 
 init();
