@@ -357,9 +357,9 @@
         }
 
         #music-btn {
-            position: absolute;
+            position: fixed;
             top: 15px;
-            right: 15px;
+            right: 60px;
             width: 40px;
             height: 40px;
             border-radius: 50%;
@@ -371,7 +371,7 @@
             justify-content: center;
             align-items: center;
             cursor: pointer;
-            z-index: 100;
+            z-index: 999;
             pointer-events: auto;
             transition: transform 0.1s, background 0.2s;
         }
@@ -386,6 +386,7 @@
 
 <div id="game-container">
     <canvas id="gameCanvas"></canvas>
+    <div id="music-btn">🔊</div>
 
     <div id="hud">
         <div class="hud-left">
@@ -393,8 +394,7 @@
             <div id="combo-display" class="combo-box">COMBO x<span id="combo-count">0</span></div>
         </div>
         <div id="powerup-indicator" class="hud-center"></div>
-        <div id="music-btn">🔊</div>
-        <div class="hud-right" style="margin-top: 50px;">
+        <div class="hud-right">
             <span id="lives">❤️❤️❤️</span>
         </div>
     </div>
