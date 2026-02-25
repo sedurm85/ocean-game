@@ -1,0 +1,1923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ocean Treasure Hunt | 바다 속 보물찾기 🌊</title>
+    
+    <!-- Firebase Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+
+        * {
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #001e3c;
+            font-family: 'Jua', sans-serif;
+            color: white;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-touch-callout: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: calc(15px + env(safe-area-inset-top)) 15px 15px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            z-index: 10;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .hud-left {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .score-box {
+            font-size: 24px;
+            color: #ffd700;
+        }
+
+        .combo-box {
+            font-size: 18px;
+            color: #ff6b6b;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .combo-active {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .hud-center {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            color: #fff;
+            background: rgba(0,0,0,0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: none;
+        }
+
+        .hud-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .hud-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .hud-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(0, 30, 60, 0.5);
+            border: 1.5px solid rgba(79, 172, 254, 0.4);
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 14px;
+            letter-spacing: -2px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: transform 0.1s, background 0.2s;
+        }
+
+        .hud-btn:active {
+            transform: scale(0.9);
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .hud-lives {
+            font-size: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 30, 60, 0.85);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            pointer-events: auto;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+            display: none !important;
+        }
+
+        h1 {
+            font-size: 42px;
+            margin-bottom: 10px;
+            text-align: center;
+            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.3));
+        }
+
+        h2 {
+            font-size: 24px;
+            margin-bottom: 30px;
+            color: #a8d0e6;
+            font-weight: normal;
+            text-align: center;
+        }
+
+        .btn {
+            background: linear-gradient(to bottom, #ff9966, #ff5e62);
+            border: none;
+            padding: 15px 40px;
+            font-size: 24px;
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Jua', sans-serif;
+            box-shadow: 0 4px 15px rgba(255, 94, 98, 0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+            animation: pulse 2s infinite;
+            margin: 10px;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 8px rgba(255, 94, 98, 0.4);
+        }
+
+        .high-score {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #ffd700;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .floating-text {
+            position: absolute;
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatUp 1s forwards;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1.2); opacity: 0; }
+        }
+
+        /* Nickname Screen */
+        #nickname-screen {
+            z-index: 30;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        #nickname-input {
+            padding: 15px 20px;
+            font-size: 22px;
+            border-radius: 15px;
+            border: 3px solid #4facfe;
+            outline: none;
+            text-align: center;
+            font-family: 'Jua', sans-serif;
+            width: 80%;
+            max-width: 300px;
+            touch-action: auto !important;
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+            background: white;
+            color: #333;
+        }
+        
+        #nickname-error {
+            color: #ff6b6b;
+            font-size: 18px;
+            height: 24px;
+            margin-top: 5px;
+        }
+
+        /* Leaderboard Screen */
+        #leaderboard-screen {
+            background: rgba(0, 20, 50, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 40;
+        }
+
+        .leaderboard-container {
+            width: 90%;
+            max-width: 500px;
+            height: 60vh;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .leaderboard-list {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-right: 5px;
+        }
+
+        .rank-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            font-size: 18px;
+        }
+        
+        .rank-item:nth-child(odd) {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .rank-item.me {
+            background: rgba(79, 172, 254, 0.3);
+            border: 1px solid #4facfe;
+            box-shadow: 0 0 10px rgba(79, 172, 254, 0.3);
+        }
+
+        .rank-num {
+            width: 40px;
+            font-weight: bold;
+            color: #a8d0e6;
+        }
+        
+        .rank-1 .rank-num { color: #ffd700; text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+        .rank-2 .rank-num { color: #c0c0c0; }
+        .rank-3 .rank-num { color: #cd7f32; }
+
+        .rank-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: left;
+        }
+
+        .rank-score {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .close-btn {
+            margin-top: 20px;
+            background: #444;
+            padding: 10px 30px;
+            font-size: 20px;
+            animation: none;
+        }
+
+        #rank-btn {
+            margin-top: 10px;
+            background: linear-gradient(to bottom, #4facfe, #00f2fe);
+            padding: 10px 30px;
+            font-size: 20px;
+            box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4);
+            animation: none;
+        }
+
+        /* Mini Leaderboard on Game Over */
+        .mini-leaderboard {
+            width: 90%;
+            max-width: 400px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .mini-leaderboard h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #a8d0e6;
+        }
+
+        @media (max-width: 480px) {
+            h1 { font-size: 32px; }
+            .btn { padding: 12px 30px; font-size: 20px; }
+            #nickname-input { font-size: 18px; }
+        }
+
+        .how-to-play {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 10px 0;
+            width: 90%;
+            max-width: 400px;
+            text-align: left;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #e0f7fa;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #pause-btn {
+            display: none;
+        }
+
+        #pause-screen {
+            z-index: 25;
+            background: rgba(0, 10, 25, 0.75);
+        }
+
+        #privacy-link {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #888;
+            text-decoration: underline;
+            pointer-events: auto;
+            animation: none;
+        }
+
+        #offline-indicator {
+            font-size: 12px;
+            color: #ffb86b;
+            margin-top: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud">
+        <div class="hud-left">
+            <div class="score-box"><span id="score-label"></span> <span id="score">0</span></div>
+            <div id="combo-display" class="combo-box">COMBO x<span id="combo-count">0</span></div>
+            <div id="offline-indicator"></div>
+        </div>
+        <div id="powerup-indicator" class="hud-center"></div>
+        <div class="hud-right">
+            <div class="hud-buttons">
+                <div id="music-btn" class="hud-btn">🔊</div>
+                <div id="pause-btn" class="hud-btn">❚❚</div>
+            </div>
+            <div class="hud-lives"><span id="lives">❤️❤️❤️</span></div>
+        </div>
+    </div>
+
+    <!-- Nickname Screen -->
+    <div id="nickname-screen" class="screen hidden">
+        <h1 id="nickname-title"></h1>
+        <h2 id="nickname-subtitle"></h2>
+        <div class="input-group">
+            <input type="text" id="nickname-input" placeholder="" maxlength="8">
+            <div id="nickname-error"></div>
+        </div>
+        <button class="btn" id="nickname-submit-btn"></button>
+    </div>
+
+    <div id="start-screen" class="screen hidden">
+        <h1 id="start-title"></h1>
+        <h2 id="greeting-msg"></h2>
+        
+        <div class="how-to-play" id="how-to-play-text">
+        </div>
+
+        <button class="btn" id="start-btn"></button>
+        <button class="btn" id="rank-btn"></button>
+        <div class="high-score"><span id="start-high-score-label"></span><span id="start-high-score">0</span></div>
+        <a id="privacy-link" href="privacy.html"></a>
+    </div>
+
+    <div id="pause-screen" class="screen hidden">
+        <h1 id="pause-title"></h1>
+        <button class="btn" id="resume-btn"></button>
+    </div>
+
+    <div id="game-over-screen" class="screen hidden">
+        <h1 id="game-over-title"></h1>
+        <h2 id="final-score-text"></h2>
+        <div id="new-record-msg" style="display:none; color: #ffd700; font-size: 20px; margin-bottom: 15px;"></div>
+        
+        <div class="mini-leaderboard">
+            <h3 id="mini-leaderboard-title"></h3>
+            <div id="mini-leaderboard-list" class="leaderboard-list" style="height: auto; max-height: 200px;"></div>
+        </div>
+
+        <button class="btn" id="restart-btn"></button>
+        <div class="high-score"><span id="end-high-score-label"></span><span id="end-high-score">0</span></div>
+    </div>
+
+    <!-- Leaderboard Screen -->
+    <div id="leaderboard-screen" class="screen hidden">
+        <h1 id="leaderboard-title"></h1>
+        <div class="leaderboard-container">
+            <div class="leaderboard-list" id="full-leaderboard-list">
+                <!-- Items will be injected here -->
+            </div>
+        </div>
+        <button class="btn close-btn" id="close-leaderboard-btn"></button>
+    </div>
+</div>
+
+<script>
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyDR-gQUAj57D0ychSZ6LMKAMgW307ltOSI",
+    authDomain: "ocean-game-370ac.firebaseapp.com",
+    databaseURL: "https://ocean-game-370ac-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ocean-game-370ac",
+    storageBucket: "ocean-game-370ac.firebasestorage.app",
+    messagingSenderId: "905935892280",
+    appId: "1:905935892280:web:36827c782977ee41375bcd"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+// i18n System
+const TEXTS = {
+    ko: {
+        documentTitle: 'Ocean Treasure Hunt | 바다 속 보물찾기 🌊',
+        nicknameTitle: '이름을 알려줘! 🐠',
+        nicknameSubtitle: '바다 모험에 사용할 이름이야',
+        nicknamePlaceholder: '닉네임 입력 (2-8자)',
+        nicknameSubmit: '시작하기!',
+        gameTitle: '바다 속 보물찾기 🌊',
+        greetingDefault: '보물을 모으고 장애물을 피하세요!',
+        howToPlayHtml: '🤿 드래그로 잠수부를 움직여요<br>🐚⭐💎 보물을 모으면 점수 UP!<br>🪼🦈 장애물을 피하세요!<br>🧲⏱️🛡️ 파워업을 놓치지 마세요!',
+        startButton: '게임 시작!',
+        rankButton: '🏆 랭킹',
+        highScoreLabel: '내 최고 기록: ',
+        gameOverTitle: '게임 오버! 😢',
+        restartButton: '다시 하기',
+        leaderboardTitle: '🏆 전체 랭킹',
+        closeButton: '닫기',
+        miniLeaderboardTitle: '🏆 TOP 5',
+        scoreLabel: '점수:',
+        newRecord: '🏆 새로운 최고 기록! 🏆',
+        comboLegendary: '전설! 🌟',
+        comboAmazing: '대박! 🔥',
+        comboBest: '최고! ⚡',
+        comboGood: '굿! ✨',
+        powerupMagnetActive: '🧲 자석 활성화',
+        powerupSlowActive: '⏱️ 시간 감속',
+        powerupShieldActive: '🛡️ 방어막',
+        powerupFeverActive: '🌈 피버 타임!',
+        floatingShieldBlock: '방어!',
+        floatingOuch: '앗!',
+        floatingMagnet: '자석!',
+        floatingSlow: '슬로우!',
+        floatingShield: '방어막!',
+        errNicknameLength: '2~8글자로 입력해주세요!',
+        errNicknameInvalidChars: '특수문자나 공백은 안돼요!',
+        errChecking: '확인 중...',
+        errAuthChecking: '서버 연결을 확인 중이에요. 잠시 후 다시 시도해주세요.',
+        errNicknameTaken: '이미 사용 중인 이름이에요 😅',
+        errSaveFailed: '저장 중 오류가 발생했어요. 다시 시도해주세요.',
+        errCheckFailed: '확인 중 오류가 발생했어요. 다시 시도해주세요.',
+        errFirebaseAnonDisabled: '⚠️ Firebase 익명 로그인이 비활성화 상태입니다',
+        errServerConnection: '⚠️ 서버 연결에 문제가 있어요',
+        loading: '로딩 중... 🌊',
+        offlineModeRanking: '오프라인 모드 - 랭킹을 불러올 수 없어요',
+        offlineIndicator: '오프라인',
+        rankingEmpty: '아직 랭킹이 없어요!',
+        rankingLoadFailed: '랭킹을 불러오는데 실패했어요',
+        pauseTitle: '일시정지',
+        resumeButton: '계속하기',
+        privacyPolicy: '개인정보 처리방침',
+        greetingWithName: '안녕, {nickname}! 🤿',
+        finalScore: '점수: {score}'
+    },
+    en: {
+        documentTitle: 'Ocean Treasure Hunt | 바다 속 보물찾기 🌊',
+        nicknameTitle: "What's your name? 🐠",
+        nicknameSubtitle: 'This is the name for your sea adventure',
+        nicknamePlaceholder: 'Enter nickname (2-8 chars)',
+        nicknameSubmit: 'Let\'s go!',
+        gameTitle: 'Ocean Treasure Hunt 🌊',
+        greetingDefault: 'Collect treasures and dodge obstacles!',
+        howToPlayHtml: '🤿 Drag to move your diver<br>🐚⭐💎 Grab treasures for score boosts!<br>🪼🦈 Watch out for obstacles!<br>🧲⏱️🛡️ Catch power-ups whenever you can!',
+        startButton: 'Start Game!',
+        rankButton: '🏆 Rankings',
+        highScoreLabel: 'Best Score: ',
+        gameOverTitle: 'Game Over! 😢',
+        restartButton: 'Play Again',
+        leaderboardTitle: '🏆 Global Rankings',
+        closeButton: 'Close',
+        miniLeaderboardTitle: '🏆 TOP 5',
+        scoreLabel: 'Score:',
+        newRecord: '🏆 New high score! 🏆',
+        comboLegendary: 'Legendary! 🌟',
+        comboAmazing: 'Awesome! 🔥',
+        comboBest: 'Epic! ⚡',
+        comboGood: 'Nice! ✨',
+        powerupMagnetActive: '🧲 Magnet Active',
+        powerupSlowActive: '⏱️ Time Slow',
+        powerupShieldActive: '🛡️ Shield',
+        powerupFeverActive: '🌈 Fever Time!',
+        floatingShieldBlock: 'Blocked!',
+        floatingOuch: 'Oops!',
+        floatingMagnet: 'Magnet!',
+        floatingSlow: 'Slow!',
+        floatingShield: 'Shield!',
+        errNicknameLength: 'Please enter 2-8 characters!',
+        errNicknameInvalidChars: 'No spaces or special characters!',
+        errChecking: 'Checking...',
+        errAuthChecking: 'Checking server connection. Please try again in a moment.',
+        errNicknameTaken: 'That name is already taken 😅',
+        errSaveFailed: 'Something went wrong while saving. Please try again.',
+        errCheckFailed: 'Something went wrong while checking. Please try again.',
+        errFirebaseAnonDisabled: '⚠️ Firebase anonymous sign-in is disabled',
+        errServerConnection: '⚠️ There is a server connection issue',
+        loading: 'Loading... 🌊',
+        offlineModeRanking: 'Offline mode - rankings are unavailable',
+        offlineIndicator: 'Offline',
+        rankingEmpty: 'No rankings yet!',
+        rankingLoadFailed: 'Failed to load rankings',
+        pauseTitle: 'Paused',
+        resumeButton: 'Resume',
+        privacyPolicy: 'Privacy Policy',
+        greetingWithName: 'Hi, {nickname}! 🤿',
+        finalScore: 'Score: {score}'
+    }
+};
+
+let currentLang = (navigator.language || navigator.userLanguage || 'en').startsWith('ko') ? 'ko' : 'en';
+
+function t(key) {
+    return TEXTS[currentLang][key] || TEXTS.en[key] || key;
+}
+
+function initLanguage() {
+    document.documentElement.lang = currentLang;
+    document.title = t('documentTitle');
+
+    document.getElementById('score-label').innerText = t('scoreLabel');
+    document.getElementById('nickname-title').innerText = t('nicknameTitle');
+    document.getElementById('nickname-subtitle').innerText = t('nicknameSubtitle');
+    document.getElementById('nickname-input').placeholder = t('nicknamePlaceholder');
+    document.getElementById('nickname-submit-btn').innerText = t('nicknameSubmit');
+
+    document.getElementById('start-title').innerText = t('gameTitle');
+    document.getElementById('greeting-msg').innerText = t('greetingDefault');
+    document.getElementById('how-to-play-text').innerHTML = t('howToPlayHtml');
+    document.getElementById('start-btn').innerText = t('startButton');
+    document.getElementById('rank-btn').innerText = t('rankButton');
+    document.getElementById('start-high-score-label').innerText = t('highScoreLabel');
+    document.getElementById('privacy-link').innerText = t('privacyPolicy');
+
+    document.getElementById('game-over-title').innerText = t('gameOverTitle');
+    document.getElementById('final-score-text').innerText = t('finalScore').replace('{score}', '0');
+    document.getElementById('new-record-msg').innerText = t('newRecord');
+    document.getElementById('mini-leaderboard-title').innerText = t('miniLeaderboardTitle');
+    document.getElementById('restart-btn').innerText = t('restartButton');
+    document.getElementById('end-high-score-label').innerText = t('highScoreLabel');
+
+    document.getElementById('leaderboard-title').innerText = t('leaderboardTitle');
+    document.getElementById('close-leaderboard-btn').innerText = t('closeButton');
+
+    document.getElementById('pause-title').innerText = t('pauseTitle');
+    document.getElementById('resume-btn').innerText = t('resumeButton');
+    document.getElementById('offline-indicator').innerText = `⚡ ${t('offlineIndicator')}`;
+    updateConnectionIndicator();
+}
+
+// Game Variables
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const uiLayer = document.getElementById('ui-layer');
+
+let gameState = 'MENU';
+let score = 0;
+let highScore = 0;
+let lives = 3;
+let gameTime = 0;
+let difficultyLevel = 1;
+
+let comboCount = 0;
+let comboTimer = 0;
+const COMBO_WINDOW = 120;
+
+let activePowerup = null;
+let powerupTimer = 0;
+
+let diver = { x: 0, y: 0, radius: 25, targetX: 0, angle: 0 };
+let items = [];
+let particles = [];
+let bubbles = [];
+
+let isTouching = false;
+let touchX = 0;
+
+let shakeIntensity = 0;
+
+const GRAVITY_BASE = 2;
+const SPAWN_RATE_BASE = 60;
+let currentSpawnRate = SPAWN_RATE_BASE;
+let spawnTimer = 0;
+
+// User Data
+let currentUser = null;
+
+const ITEM_TYPES = {
+    SHELL: { type: 'treasure', emoji: '🐚', score: 10, weight: 30 },
+    OYSTER: { type: 'treasure', emoji: '🦪', score: 15, weight: 25 },
+    GEM: { type: 'treasure', emoji: '💎', score: 25, weight: 15 },
+    STAR: { type: 'treasure', emoji: '⭐', score: 30, weight: 10 },
+    CROWN: { type: 'treasure', emoji: '👑', score: 50, weight: 5 },
+    RAINBOW: { type: 'treasure', emoji: '🌈', score: 100, weight: 2, effect: 'FEVER' },
+    
+    JELLY: { type: 'obstacle', emoji: '🪼', damage: 1, weight: 20 },
+    SHARK: { type: 'obstacle', emoji: '🦈', damage: 1, weight: 10, moveType: 'sideways' },
+    WHIRL: { type: 'obstacle', emoji: '🌊', damage: 1, weight: 5 },
+
+    MAGNET: { type: 'powerup', emoji: '🧲', effect: 'MAGNET', duration: 300, weight: 3 },
+    SLOW: { type: 'powerup', emoji: '⏱️', effect: 'SLOW', duration: 300, weight: 3 },
+    SHIELD: { type: 'powerup', emoji: '🛡️', effect: 'SHIELD', duration: 600, weight: 3 }
+};
+
+// Audio System
+let audioCtx = null;
+let musicEnabled = localStorage.getItem('oceanMusicEnabled') !== 'false';
+let musicStarted = false;
+let melodyTimer = null;
+let droneNodes = [];
+
+const PENDING_NICKNAME_KEY = 'pendingNicknameSync';
+const PENDING_SCORE_KEY = 'pendingScoreSync';
+const LEADERBOARD_CACHE_KEY = 'cachedLeaderboard';
+
+function initAudio() {
+    if (audioCtx) return;
+    
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContext();
+    
+    if (musicEnabled) {
+        startMusic();
+    }
+    
+    updateMusicButton();
+}
+
+function startMusic() {
+    if (!audioCtx || !musicEnabled) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    musicStarted = true;
+    scheduleNote();
+    if (droneNodes.length === 0) {
+        playDrone();
+    }
+}
+
+function stopMusic() {
+    if (melodyTimer) clearTimeout(melodyTimer);
+    musicStarted = false;
+    if (droneNodes.length > 0) {
+        droneNodes.forEach(node => {
+            try {
+                node.osc1.stop();
+                node.osc2.stop();
+            } catch (e) {}
+            node.osc1.disconnect();
+            node.osc2.disconnect();
+            node.gain.disconnect();
+            node.filter.disconnect();
+        });
+        droneNodes = [];
+    }
+    if (audioCtx) audioCtx.suspend();
+}
+
+function toggleMusic() {
+    musicEnabled = !musicEnabled;
+    localStorage.setItem('oceanMusicEnabled', musicEnabled);
+    updateMusicButton();
+    
+    if (!audioCtx) {
+        initAudio();
+        return;
+    }
+
+    if (musicEnabled) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        startMusic();
+    } else {
+        stopMusic();
+    }
+}
+
+function updateMusicButton() {
+    const btn = document.getElementById('music-btn');
+    if (btn) btn.innerText = musicEnabled ? "🔊" : "🔇";
+}
+
+function playDrone() {
+    if (!audioCtx || !musicEnabled) return;
+    
+    const osc1 = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const filter = audioCtx.createBiquadFilter();
+    
+    osc1.type = 'sine';
+    osc1.frequency.value = 55; // A1
+    
+    osc2.type = 'sine';
+    osc2.frequency.value = 110; // A2
+    osc2.detune.value = 5;
+    
+    filter.type = 'lowpass';
+    filter.frequency.value = 400;
+    
+    gain.gain.value = 0.15;
+    
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(filter);
+    filter.connect(audioCtx.destination);
+
+    droneNodes.push({ osc1, osc2, gain, filter });
+    
+    osc1.start();
+    osc2.start();
+}
+
+function scheduleNote() {
+    if (!musicEnabled || !musicStarted) return;
+    
+    const notes = [261.63, 293.66, 329.63, 392.00, 440.00]; // Pentatonic
+    const note = notes[Math.floor(Math.random() * notes.length)];
+    const duration = 2;
+    const time = audioCtx.currentTime;
+    
+    playTone(note, time, duration, 0.05);
+    
+    const nextTime = Math.random() * 3000 + 2000;
+    melodyTimer = setTimeout(scheduleNote, nextTime);
+}
+
+function playTone(freq, time, duration, vol) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(vol, time + 0.5);
+    gain.gain.linearRampToValueAtTime(0, time + duration);
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+    };
+    
+    osc.start(time);
+    osc.stop(time + duration);
+}
+
+function playSound(type) {
+    if (!audioCtx || !musicEnabled) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+    };
+    
+    if (type === 'collect') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, t);
+        osc.frequency.exponentialRampToValueAtTime(659.25, t + 0.1);
+        
+        gain.gain.setValueAtTime(0.1, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+        
+        osc.start(t);
+        osc.stop(t + 0.1);
+    } else if (type === 'hit') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(130.81, t);
+        osc.frequency.exponentialRampToValueAtTime(65.41, t + 0.15);
+        
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+        
+        osc.start(t);
+        osc.stop(t + 0.15);
+    } else if (type === 'gameover') {
+        playTone(392.00, t, 1, 0.1);
+        playTone(329.63, t + 0.5, 1, 0.1);
+        playTone(261.63, t + 1.0, 2, 0.1);
+    }
+}
+
+// Initialization
+function init() {
+    initLanguage();
+    resize();
+    window.addEventListener('resize', resize);
+    
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('contextmenu', e => e.preventDefault());
+
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('restart-btn').addEventListener('click', startGame);
+    
+    // New Event Listeners
+    document.getElementById('nickname-submit-btn').addEventListener('click', registerNickname);
+    document.getElementById('rank-btn').addEventListener('click', () => showLeaderboard(true));
+    document.getElementById('close-leaderboard-btn').addEventListener('click', () => showLeaderboard(false));
+    document.getElementById('pause-btn').addEventListener('click', pauseGame);
+    document.getElementById('resume-btn').addEventListener('click', resumeGame);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && gameState === 'PLAYING') {
+            pauseGame();
+        }
+    });
+
+    // Audio Init
+    document.addEventListener('click', initAudio, { once: true });
+    document.addEventListener('touchstart', initAudio, { once: true });
+    document.getElementById('music-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleMusic();
+    });
+    updateMusicButton();
+
+    // Background bubbles
+    for(let i=0; i<20; i++) {
+        bubbles.push(createBubble(true));
+    }
+
+    // Check User Session
+    checkUserSession();
+    setupConnectionListener();
+    
+    requestAnimationFrame(gameLoop);
+}
+
+let firebaseReady = false;
+
+function setupConnectionListener() {
+    db.ref('.info/connected').on('value', snapshot => {
+        const connected = !!snapshot.val();
+        firebaseReady = connected && !!auth.currentUser;
+        updateConnectionIndicator();
+        if (firebaseReady) {
+            syncPendingData();
+        }
+    });
+}
+
+function updateConnectionIndicator() {
+    const indicator = document.getElementById('offline-indicator');
+    if (!indicator) return;
+    indicator.style.display = (!firebaseReady && gameState === 'PLAYING') ? 'block' : 'none';
+}
+
+function checkUserSession() {
+    // Listen for auth state changes (most reliable way)
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            firebaseReady = true;
+            updateConnectionIndicator();
+            onAuthReady(user.uid);
+            syncPendingData();
+        }
+    });
+
+    // Trigger anonymous sign-in
+    auth.signInAnonymously().catch(error => {
+        // Show nickname screen anyway (offline mode)
+        const localData = localStorage.getItem('oceanPlayer');
+        if (localData) {
+            currentUser = JSON.parse(localData);
+            highScore = currentUser.highScore || 0;
+            updateStartScreen();
+            showScreen('start-screen');
+        } else {
+            showScreen('nickname-screen');
+            document.getElementById('nickname-error').innerText = 
+                error.code === 'auth/operation-not-allowed' 
+                ? t('errFirebaseAnonDisabled')
+                : t('errServerConnection');
+        }
+    });
+
+    // Timeout fallback - if auth doesn't respond in 5 seconds, go offline
+    setTimeout(() => {
+        if (!firebaseReady) {
+            const localData = localStorage.getItem('oceanPlayer');
+            if (localData) {
+                currentUser = JSON.parse(localData);
+                highScore = currentUser.highScore || 0;
+                updateStartScreen();
+                showScreen('start-screen');
+            } else {
+                showScreen('nickname-screen');
+            }
+        }
+    }, 5000);
+}
+
+function onAuthReady(uid) {
+    const localData = localStorage.getItem('oceanPlayer');
+    if (localData) {
+        currentUser = JSON.parse(localData);
+        currentUser.uid = uid;
+        highScore = currentUser.highScore || 0;
+        localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+
+        // Sync high score from Firebase
+        db.ref('players/' + uid).once('value').then(snapshot => {
+            const data = snapshot.val();
+            if (data && data.highScore > highScore) {
+                highScore = data.highScore;
+                currentUser.highScore = highScore;
+                localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+            }
+            updateStartScreen();
+        }).catch(() => updateStartScreen());
+
+        showScreen('start-screen');
+    } else {
+        showScreen('nickname-screen');
+    }
+}
+
+function updateStartScreen() {
+    if (currentUser) {
+        document.getElementById('greeting-msg').innerText = t('greetingWithName').replace('{nickname}', currentUser.nickname);
+        document.getElementById('start-high-score').innerText = highScore.toLocaleString();
+    }
+}
+
+function registerNickname() {
+    const input = document.getElementById('nickname-input');
+    const errorMsg = document.getElementById('nickname-error');
+    const nickname = input.value.trim();
+    
+    // Validation
+    if (nickname.length < 2 || nickname.length > 8) {
+        errorMsg.innerText = t('errNicknameLength');
+        return;
+    }
+    
+    const regex = /^[a-zA-Z0-9가-힣]+$/;
+    if (!regex.test(nickname)) {
+        errorMsg.innerText = t('errNicknameInvalidChars');
+        return;
+    }
+
+    errorMsg.innerText = t('errChecking');
+    
+    const nicknameLower = nickname.toLowerCase();
+    
+    if (!firebaseReady || !auth.currentUser) {
+        currentUser = { uid: null, nickname: nickname, highScore: 0 };
+        localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+        localStorage.setItem(PENDING_NICKNAME_KEY, JSON.stringify({ nickname: nickname, nicknameLower: nicknameLower }));
+        highScore = 0;
+        updateStartScreen();
+        showScreen('start-screen');
+        errorMsg.innerText = '';
+        auth.signInAnonymously().catch(() => {});
+        return;
+    }
+
+    const uid = auth.currentUser.uid;
+
+    // Already authenticated from checkUserSession → safe to read DB
+    db.ref('nicknames/' + nicknameLower).once('value').then(snapshot => {
+        if (snapshot.exists()) {
+            errorMsg.innerText = t('errNicknameTaken');
+        } else {
+            const playerData = {
+                nickname: nickname,
+                highScore: 0,
+                updatedAt: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            const updates = {};
+            updates['/players/' + uid] = playerData;
+            updates['/nicknames/' + nicknameLower] = { uid: uid };
+            
+            db.ref().update(updates).then(() => {
+                currentUser = { uid: uid, nickname: nickname, highScore: 0 };
+                localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+                localStorage.removeItem(PENDING_NICKNAME_KEY);
+                highScore = 0;
+                updateStartScreen();
+                showScreen('start-screen');
+            }).catch(() => {
+                currentUser = { uid: null, nickname: nickname, highScore: 0 };
+                localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+                localStorage.setItem(PENDING_NICKNAME_KEY, JSON.stringify({ nickname: nickname, nicknameLower: nicknameLower }));
+                highScore = 0;
+                updateStartScreen();
+                showScreen('start-screen');
+            });
+        }
+    }).catch(() => {
+        currentUser = { uid: null, nickname: nickname, highScore: 0 };
+        localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+        localStorage.setItem(PENDING_NICKNAME_KEY, JSON.stringify({ nickname: nickname, nicknameLower: nicknameLower }));
+        highScore = 0;
+        updateStartScreen();
+        showScreen('start-screen');
+    });
+}
+
+function pauseGame() {
+    if (gameState !== 'PLAYING') return;
+    gameState = 'PAUSED';
+    showScreen('pause-screen');
+    updateConnectionIndicator();
+    updatePauseButtonVisibility();
+}
+
+function resumeGame() {
+    if (gameState !== 'PAUSED') return;
+    gameState = 'PLAYING';
+    document.getElementById('pause-screen').classList.add('hidden');
+    updateConnectionIndicator();
+    updatePauseButtonVisibility();
+}
+
+function updatePauseButtonVisibility() {
+    const pauseBtn = document.getElementById('pause-btn');
+    if (!pauseBtn) return;
+    pauseBtn.style.display = gameState === 'PLAYING' ? 'flex' : 'none';
+}
+
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+    const screen = document.getElementById(screenId);
+    if (screen) screen.classList.remove('hidden');
+}
+
+function showLeaderboard(show) {
+    const el = document.getElementById('leaderboard-screen');
+    if (show) {
+        el.classList.remove('hidden');
+        fetchLeaderboard('full-leaderboard-list', 20);
+    } else {
+        el.classList.add('hidden');
+    }
+}
+
+function fetchLeaderboard(containerId, limit) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = `<div style="text-align:center; padding:20px;">${t('loading')}</div>`;
+    const cachedPlayers = getCachedLeaderboard(limit);
+    
+    if (!firebaseReady) {
+        if (cachedPlayers.length > 0) {
+            renderLeaderboard(container, cachedPlayers, true);
+        } else {
+            container.innerHTML = `<div style="text-align:center; padding:20px;">${t('offlineModeRanking')}</div>`;
+        }
+        return;
+    }
+
+    db.ref('players').orderByChild('highScore').limitToLast(limit).once('value').then(snapshot => {
+        const players = [];
+        snapshot.forEach(child => {
+            players.push(child.val());
+        });
+        players.reverse(); // Descending order
+        cacheLeaderboard(players);
+        renderLeaderboard(container, players, false);
+    }).catch(() => {
+        if (cachedPlayers.length > 0) {
+            renderLeaderboard(container, cachedPlayers, true);
+        } else {
+            container.innerHTML = `<div style="text-align:center; padding:20px;">${t('rankingLoadFailed')}</div>`;
+        }
+    });
+}
+
+function renderLeaderboard(container, players, showOfflineNotice) {
+    container.innerHTML = '';
+
+    if (showOfflineNotice) {
+        const offlineNotice = document.createElement('div');
+        offlineNotice.style.textAlign = 'center';
+        offlineNotice.style.padding = '8px 0 14px';
+        offlineNotice.innerText = t('offlineModeRanking');
+        container.appendChild(offlineNotice);
+    }
+
+    if (players.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.textAlign = 'center';
+        empty.style.padding = '20px';
+        empty.innerText = t('rankingEmpty');
+        container.appendChild(empty);
+        return;
+    }
+
+    players.forEach((p, index) => {
+        const rank = index + 1;
+        const isMe = currentUser && p.nickname === currentUser.nickname;
+
+        const div = document.createElement('div');
+        div.className = `rank-item rank-${rank} ${isMe ? 'me' : ''}`;
+
+        let rankDisplay = rank;
+        if (rank === 1) rankDisplay = '🥇';
+        if (rank === 2) rankDisplay = '🥈';
+        if (rank === 3) rankDisplay = '🥉';
+
+        div.innerHTML = `
+            <div class="rank-num">${rankDisplay}</div>
+            <div class="rank-name">${p.nickname}</div>
+            <div class="rank-score">${p.highScore.toLocaleString()}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function cacheLeaderboard(players) {
+    const existingRaw = localStorage.getItem(LEADERBOARD_CACHE_KEY);
+    if (!existingRaw) {
+        localStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify(players));
+        return;
+    }
+
+    try {
+        const existing = JSON.parse(existingRaw);
+        if (!Array.isArray(existing) || players.length >= existing.length) {
+            localStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify(players));
+        }
+    } catch (e) {
+        localStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify(players));
+    }
+}
+
+function getCachedLeaderboard(limit) {
+    const raw = localStorage.getItem(LEADERBOARD_CACHE_KEY);
+    if (!raw) return [];
+
+    try {
+        const players = JSON.parse(raw);
+        if (!Array.isArray(players)) return [];
+        return players.slice(0, limit);
+    } catch (e) {
+        return [];
+    }
+}
+
+function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (gameState === 'MENU') {
+        diver.x = window.innerWidth / 2;
+        diver.y = window.innerHeight - 100;
+        diver.targetX = window.innerWidth / 2;
+    }
+}
+
+function getWidth() { return window.innerWidth; }
+function getHeight() { return window.innerHeight; }
+
+function startGame() {
+    gameState = 'PLAYING';
+    score = 0;
+    lives = 3;
+    gameTime = 0;
+    difficultyLevel = 1;
+    items = [];
+    particles = [];
+    activePowerup = null;
+    powerupTimer = 0;
+    comboCount = 0;
+    
+    diver.x = getWidth() / 2;
+    diver.y = getHeight() - 100;
+    diver.targetX = getWidth() / 2;
+
+    document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+    updateHUD();
+    updatePauseButtonVisibility();
+    updateConnectionIndicator();
+}
+
+function gameOver() {
+    gameState = 'GAMEOVER';
+    updatePauseButtonVisibility();
+    updateConnectionIndicator();
+    
+    // Play game over sound
+    playSound('gameover');
+    
+    let isNewRecord = false;
+    if (score > highScore) {
+        highScore = score;
+        isNewRecord = true;
+        
+        // Update Local
+        if (currentUser) {
+            currentUser.highScore = highScore;
+            localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+            queuePendingScoreSync(highScore);
+            
+            // Update Firebase
+            if (firebaseReady && currentUser.uid) {
+                syncScoreToFirebase(highScore);
+            }
+        }
+    }
+
+    document.getElementById('final-score-text').innerText = t('finalScore').replace('{score}', score.toLocaleString());
+    document.getElementById('new-record-msg').style.display = isNewRecord ? 'block' : 'none';
+    document.getElementById('end-high-score').innerText = highScore.toLocaleString();
+    
+    showScreen('game-over-screen');
+    
+    // Show mini leaderboard
+    fetchLeaderboard('mini-leaderboard-list', 5);
+}
+
+function handleTouchStart(e) {
+    e.preventDefault();
+    isTouching = true;
+    touchX = e.touches[0].clientX;
+    diver.targetX = touchX;
+}
+
+function handleTouchMove(e) {
+    e.preventDefault();
+    if (isTouching) {
+        touchX = e.touches[0].clientX;
+        diver.targetX = touchX;
+    }
+}
+
+function handleTouchEnd(e) {
+    e.preventDefault();
+    isTouching = false;
+}
+
+function handleMouseDown(e) {
+    isTouching = true;
+    touchX = e.clientX;
+    diver.targetX = touchX;
+}
+
+function handleMouseMove(e) {
+    if (isTouching) {
+        touchX = e.clientX;
+        diver.targetX = touchX;
+    }
+}
+
+function handleMouseUp(e) {
+    isTouching = false;
+}
+
+function update() {
+    if (gameState !== 'PLAYING') {
+        updateBubbles();
+        return;
+    }
+
+    gameTime++;
+    
+    if (gameTime % 600 === 0) {
+        difficultyLevel += 0.1;
+        currentSpawnRate = Math.max(20, SPAWN_RATE_BASE - (difficultyLevel * 5));
+    }
+
+    diver.targetX = Math.max(diver.radius, Math.min(getWidth() - diver.radius, diver.targetX));
+    
+    let dx = diver.targetX - diver.x;
+    diver.x += dx * 0.15;
+    
+    diver.angle = dx * 0.05; 
+    diver.angle = Math.max(-0.5, Math.min(0.5, diver.angle));
+
+    diver.y = (getHeight() - 100) + Math.sin(gameTime * 0.05) * 5;
+
+    spawnTimer++;
+    let adjustedSpawnRate = activePowerup === 'FEVER' ? 10 : currentSpawnRate;
+    
+    if (spawnTimer > adjustedSpawnRate) {
+        spawnItem();
+        spawnTimer = 0;
+    }
+
+    for (let i = items.length - 1; i >= 0; i--) {
+        let item = items[i];
+        
+        let speed = (GRAVITY_BASE + (difficultyLevel * 0.5)) * item.speedMult;
+        
+        if (activePowerup === 'SLOW') speed *= 0.5;
+        
+        item.y += speed;
+        
+        item.x += Math.sin(gameTime * 0.05 + item.offset) * 1.5;
+        
+        if (item.def.moveType === 'sideways') {
+            item.x += Math.sin(gameTime * 0.02) * 3;
+        }
+
+        if (activePowerup === 'MAGNET' && item.def.type === 'treasure') {
+            let dist = Math.hypot(diver.x - item.x, diver.y - item.y);
+            if (dist < 300) {
+                item.x += (diver.x - item.x) * 0.05;
+                item.y += (diver.y - item.y) * 0.05;
+            }
+        }
+
+        let dist = Math.hypot(diver.x - item.x, diver.y - item.y);
+        if (dist < diver.radius + item.radius) {
+            collectItem(item, i);
+            continue;
+        }
+
+        if (item.y > getHeight() + 50) {
+            items.splice(i, 1);
+        }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        p.vy += 0.1;
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    updateBubbles();
+
+    if (activePowerup) {
+        powerupTimer--;
+        if (powerupTimer <= 0) {
+            activePowerup = null;
+            updateHUD();
+        }
+    }
+
+    if (comboCount > 0) {
+        comboTimer--;
+        if (comboTimer <= 0) {
+            comboCount = 0;
+            updateHUD();
+        }
+    }
+
+    if (shakeIntensity > 0) {
+        shakeIntensity *= 0.9;
+        if (shakeIntensity < 0.5) shakeIntensity = 0;
+    }
+}
+
+function updateBubbles() {
+    if (Math.random() < 0.05) bubbles.push(createBubble());
+
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+        let b = bubbles[i];
+        b.y -= b.speed;
+        b.x += Math.sin(gameTime * 0.01 + b.offset) * 0.5;
+        if (b.y < -20) bubbles.splice(i, 1);
+    }
+}
+
+function createBubble(randomY = false) {
+    return {
+        x: Math.random() * getWidth(),
+        y: randomY ? Math.random() * getHeight() : getHeight() + 20,
+        size: Math.random() * 5 + 2,
+        speed: Math.random() * 1 + 0.5,
+        offset: Math.random() * 100,
+        opacity: Math.random() * 0.5 + 0.1
+    };
+}
+
+function spawnItem() {
+    let rand = Math.random() * 100;
+    let typeKey;
+    
+    let pool = [];
+    for (let key in ITEM_TYPES) {
+        let item = ITEM_TYPES[key];
+        let weight = item.weight;
+        
+        if (activePowerup === 'FEVER') {
+            if (item.type === 'treasure') pool.push({key, weight: weight * 2});
+        } else {
+            pool.push({key, weight});
+        }
+    }
+    
+    let totalWeight = pool.reduce((sum, item) => sum + item.weight, 0);
+    let randomVal = Math.random() * totalWeight;
+    let currentSum = 0;
+    
+    for (let item of pool) {
+        currentSum += item.weight;
+        if (randomVal <= currentSum) {
+            typeKey = item.key;
+            break;
+        }
+    }
+
+    let def = ITEM_TYPES[typeKey];
+    
+    items.push({
+        def: def,
+        x: Math.random() * (getWidth() - 60) + 30,
+        y: -50,
+        radius: 20,
+        speedMult: Math.random() * 0.5 + 0.8,
+        offset: Math.random() * 100
+    });
+}
+
+function collectItem(item, index) {
+    items.splice(index, 1);
+    
+    let def = item.def;
+
+    if (def.type === 'treasure') {
+        playSound('collect');
+        comboCount++;
+        comboTimer = COMBO_WINDOW;
+        
+        let multiplier = Math.min(5, Math.floor(comboCount / 5) + 1);
+        let points = def.score * multiplier;
+        
+        if (activePowerup === 'FEVER') points *= 2;
+        
+        score += points;
+        
+        createExplosion(item.x, item.y, 'gold');
+        showFloatingText(`+${points}`, item.x, item.y, '#ffd700');
+        
+        if (def.effect === 'FEVER') activatePowerup('FEVER');
+        
+    } else if (def.type === 'obstacle') {
+        playSound('hit');
+        if (activePowerup === 'SHIELD') {
+            activePowerup = null;
+            createExplosion(item.x, item.y, 'cyan');
+            showFloatingText(t('floatingShieldBlock'), item.x, item.y, 'cyan');
+        } else if (activePowerup === 'FEVER') {
+            score += 50;
+            createExplosion(item.x, item.y, 'gold');
+            showFloatingText("+50", item.x, item.y, '#ffd700');
+        } else {
+            lives--;
+            shakeIntensity = 20;
+            createExplosion(item.x, item.y, 'red');
+            showFloatingText(t('floatingOuch'), item.x, item.y, 'red');
+            
+            comboCount = 0;
+            
+            if (lives <= 0) {
+                gameOver();
+            }
+        }
+    } else if (def.type === 'powerup') {
+        playSound('collect');
+        activatePowerup(def.effect);
+        createExplosion(item.x, item.y, 'white');
+        let text = "";
+        if (def.effect === 'MAGNET') text = t('floatingMagnet');
+        if (def.effect === 'SLOW') text = t('floatingSlow');
+        if (def.effect === 'SHIELD') text = t('floatingShield');
+        showFloatingText(text, item.x, item.y, '#fff');
+    }
+    
+    updateHUD();
+}
+
+function activatePowerup(type) {
+    activePowerup = type;
+    let def = Object.values(ITEM_TYPES).find(i => i.effect === type);
+    powerupTimer = def ? def.duration : 300;
+    if (type === 'FEVER') powerupTimer = 300;
+}
+
+function createExplosion(x, y, color) {
+    for (let i = 0; i < 10; i++) {
+        particles.push({
+            x: x,
+            y: y,
+            vx: (Math.random() - 0.5) * 10,
+            vy: (Math.random() - 0.5) * 10,
+            life: 30,
+            color: color,
+            size: Math.random() * 5 + 2
+        });
+    }
+}
+
+function showFloatingText(text, x, y, color) {
+    let el = document.createElement('div');
+    el.className = 'floating-text';
+    el.innerText = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.color = color;
+    el.style.fontSize = '24px';
+    document.getElementById('game-container').appendChild(el);
+    
+    setTimeout(() => {
+        el.remove();
+    }, 1000);
+}
+
+function updateHUD() {
+    document.getElementById('score').innerText = score;
+    
+    let hearts = "";
+    for(let i=0; i<lives; i++) hearts += "❤️";
+    document.getElementById('lives').innerText = hearts;
+    
+    let comboEl = document.getElementById('combo-display');
+    let comboCountEl = document.getElementById('combo-count');
+    if (comboCount > 1) {
+        comboEl.classList.add('combo-active');
+        let comboText = `x${comboCount}`;
+        if (comboCount >= 20) comboText += ` ${t('comboLegendary')}`;
+        else if (comboCount >= 15) comboText += ` ${t('comboAmazing')}`;
+        else if (comboCount >= 10) comboText += ` ${t('comboBest')}`;
+        else if (comboCount >= 5) comboText += ` ${t('comboGood')}`;
+        comboCountEl.innerText = comboText;
+    } else {
+        comboEl.classList.remove('combo-active');
+    }
+
+    let puEl = document.getElementById('powerup-indicator');
+    if (activePowerup) {
+        puEl.style.display = 'block';
+        let text = "";
+        if (activePowerup === 'MAGNET') text = t('powerupMagnetActive');
+        if (activePowerup === 'SLOW') text = t('powerupSlowActive');
+        if (activePowerup === 'SHIELD') text = t('powerupShieldActive');
+        if (activePowerup === 'FEVER') text = t('powerupFeverActive');
+        puEl.innerText = text;
+    } else {
+        puEl.style.display = 'none';
+    }
+}
+
+function drawWaves(time) {
+    const w = getWidth();
+    // Draw two wave layers at the top for ocean surface feel
+    ctx.save();
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    for (let x = 0; x <= w; x += 5) {
+        ctx.lineTo(x, 20 + Math.sin(x * 0.02 + time * 0.003) * 8 + Math.sin(x * 0.01 + time * 0.005) * 4);
+    }
+    ctx.lineTo(w, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.globalAlpha = 0.08;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    for (let x = 0; x <= w; x += 5) {
+        ctx.lineTo(x, 35 + Math.sin(x * 0.015 + time * 0.004 + 1) * 10);
+    }
+    ctx.lineTo(w, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+function draw() {
+    const w = getWidth();
+    const h = getHeight();
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.save();
+    if (shakeIntensity > 0) {
+        let dx = (Math.random() - 0.5) * shakeIntensity;
+        let dy = (Math.random() - 0.5) * shakeIntensity;
+        ctx.translate(dx, dy);
+    }
+
+    let grad = ctx.createLinearGradient(0, 0, 0, h);
+    if (activePowerup === 'FEVER') {
+        let time = Date.now() * 0.002;
+        let r = Math.sin(time) * 127 + 128;
+        let g = Math.sin(time + 2) * 127 + 128;
+        let b = Math.sin(time + 4) * 127 + 128;
+        grad.addColorStop(0, `rgb(${r},${g},${b})`);
+        grad.addColorStop(1, '#001e3c');
+    } else {
+        grad.addColorStop(0, '#87ceeb');
+        grad.addColorStop(0.3, '#4facfe');
+        grad.addColorStop(0.7, '#0066cc');
+        grad.addColorStop(1, '#001e3c');
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Ocean surface waves
+    drawWaves(Date.now());
+
+    // Subtle light rays from surface
+    ctx.save();
+    ctx.globalAlpha = 0.03;
+    for (let i = 0; i < 5; i++) {
+        let lx = w * 0.15 + i * w * 0.18;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(lx, 0);
+        ctx.lineTo(lx - 30, h * 0.6);
+        ctx.lineTo(lx + 30, h * 0.6);
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.restore();
+
+    // Bubbles
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    for (let b of bubbles) {
+        ctx.globalAlpha = b.opacity;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Ocean floor (sand)
+    ctx.save();
+    let sandGrad = ctx.createLinearGradient(0, h - 40, 0, h);
+    sandGrad.addColorStop(0, 'rgba(194, 154, 108, 0)');
+    sandGrad.addColorStop(0.3, 'rgba(194, 154, 108, 0.3)');
+    sandGrad.addColorStop(1, 'rgba(194, 154, 108, 0.5)');
+    ctx.fillStyle = sandGrad;
+    ctx.fillRect(0, h - 40, w, 40);
+    // Small seaweed decorations
+    ctx.fillStyle = 'rgba(34, 139, 34, 0.3)';
+    for (let i = 0; i < 6; i++) {
+        let sx = w * 0.1 + i * w * 0.18;
+        let swayOffset = Math.sin(Date.now() * 0.002 + i) * 5;
+        ctx.beginPath();
+        ctx.moveTo(sx, h);
+        ctx.quadraticCurveTo(sx + swayOffset, h - 30, sx + swayOffset * 0.5, h - 45);
+        ctx.quadraticCurveTo(sx + swayOffset * 0.3, h - 30, sx + 5, h);
+        ctx.fill();
+    }
+    ctx.restore();
+
+    // Diver character
+    if (gameState !== 'GAMEOVER') {
+        ctx.save();
+        ctx.translate(diver.x, diver.y);
+        ctx.rotate(diver.angle);
+        
+        if (activePowerup === 'SHIELD') {
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = 'cyan';
+            // Draw shield bubble
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, 35, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (activePowerup === 'FEVER') {
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = 'gold';
+        } else {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        }
+        
+        ctx.font = "50px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("🤿", 0, 0);
+        ctx.restore();
+    }
+
+    for (let item of items) {
+        ctx.font = "40px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(item.def.emoji, item.x, item.y);
+    }
+
+    for (let p of particles) {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life / 30;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+function queuePendingScoreSync(highScoreToSync) {
+    localStorage.setItem(PENDING_SCORE_KEY, JSON.stringify({ highScore: highScoreToSync }));
+}
+
+function syncScoreToFirebase(highScoreToSync) {
+    if (!firebaseReady || !currentUser || !currentUser.uid) {
+        queuePendingScoreSync(highScoreToSync);
+        return;
+    }
+
+    db.ref('players/' + currentUser.uid).update({
+        highScore: highScoreToSync,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+        const pendingRaw = localStorage.getItem(PENDING_SCORE_KEY);
+        if (!pendingRaw) return;
+        const pendingData = JSON.parse(pendingRaw);
+        if (pendingData.highScore <= highScoreToSync) {
+            localStorage.removeItem(PENDING_SCORE_KEY);
+        }
+    }).catch(() => {
+        queuePendingScoreSync(highScoreToSync);
+    });
+}
+
+function syncPendingData() {
+    if (!firebaseReady || !auth.currentUser) return;
+
+    const uid = auth.currentUser.uid;
+    if (currentUser && !currentUser.uid) {
+        currentUser.uid = uid;
+        localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+    }
+
+    const pendingNicknameRaw = localStorage.getItem(PENDING_NICKNAME_KEY);
+    if (pendingNicknameRaw) {
+        try {
+            const pendingNickname = JSON.parse(pendingNicknameRaw);
+            const nickname = pendingNickname.nickname;
+            const nicknameLower = pendingNickname.nicknameLower;
+
+            db.ref('nicknames/' + nicknameLower).once('value').then(snapshot => {
+                if (snapshot.exists() && snapshot.val().uid !== uid) {
+                    return;
+                }
+
+                const playerData = {
+                    nickname: nickname,
+                    highScore: (currentUser && currentUser.highScore) || 0,
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                };
+                const updates = {};
+                updates['/players/' + uid] = playerData;
+                updates['/nicknames/' + nicknameLower] = { uid: uid };
+
+                db.ref().update(updates).then(() => {
+                    if (!currentUser) {
+                        currentUser = { uid: uid, nickname: nickname, highScore: 0 };
+                    } else {
+                        currentUser.uid = uid;
+                        currentUser.nickname = nickname;
+                    }
+                    localStorage.setItem('oceanPlayer', JSON.stringify(currentUser));
+                    localStorage.removeItem(PENDING_NICKNAME_KEY);
+                    updateStartScreen();
+                }).catch(() => {});
+            }).catch(() => {});
+        } catch (e) {
+            localStorage.removeItem(PENDING_NICKNAME_KEY);
+        }
+    }
+
+    const pendingScoreRaw = localStorage.getItem(PENDING_SCORE_KEY);
+    if (pendingScoreRaw) {
+        try {
+            const pendingScoreData = JSON.parse(pendingScoreRaw);
+            const pendingScore = pendingScoreData.highScore || 0;
+            if (pendingScore > 0) {
+                syncScoreToFirebase(pendingScore);
+            }
+        } catch (e) {
+            localStorage.removeItem(PENDING_SCORE_KEY);
+        }
+    }
+}
+
+init();
+
+</script>
+</body>
+</html>
