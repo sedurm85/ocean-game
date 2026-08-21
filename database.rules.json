@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "players": {
+      ".read": true,
+      ".indexOn": ["maxDepth", "highScore"],
+      "$uid": {
+        ".write": "auth != null && auth.uid == $uid",
+        ".validate": "newData.hasChildren(['nickname'])",
+        "nickname": { ".validate": "newData.isString() && newData.val().matches(/^[a-zA-Z0-9가-힣]{2,8}$/)" },
+        "maxDepth": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1200 && (!data.exists() || newData.val() >= data.val())" },
+        "highScore": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000" },
+        "updatedAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+    "nicknames": {
+      "$nickname": {
+        ".read": true,
+        ".write": "auth != null && (!data.exists() || data.child('uid').val() == auth.uid)",
+        ".validate": "$nickname.matches(/^[a-z0-9가-힣]{2,8}$/) && newData.hasChild('uid') && newData.child('uid').val() == auth.uid"
+      }
+    }
+  }
+}

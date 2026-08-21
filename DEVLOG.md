@@ -418,3 +418,51 @@ Apple 심사에서 리젝될 경우 대비:
 | 2026-02-12 | App Store Connect 앱 등록 & 메타데이터 입력 |
 | 2026-02-13 | 개인정보처리방침 URL 설정, iPad 스크린샷 리사이즈 |
 | 2026-02-13 | 콘텐츠 권한 설정 & **App Store 심사 제출 완료** |
+| 2026-02-22 | App Store 출시 (무료, 4+) |
+| 2026-02-26 | v2.0 (8스테이지) 업데이트 |
+| 2026-08-21 | **v3.0 피벗 착수** — 액션 → 잠수부 키우기 (브랜치 `v3-pivot`) |
+
+---
+
+## v3.0 — 잠수부 키우기 피벗 (2026-08-21 ~)
+
+### 왜 바꿨나
+v2는 "결정이 없고, 키우는 게 없고, 실패가 벌"인 반사신경 게임이라 재미가 없었다. 진단·대안은 `PIVOT_PROPOSAL.md`, 확정 기획은 `GDD_V3.md`, v2 코드 감사는 `REBUILD_REVIEW.md`.
+
+### 구조 (빌드 없음, ES modules)
+```
+index.html            DOM UI (기지 / 잠수 HUD / 모달 8종)
+css/style.css
+js/data.js            테마·밸런스 데이터 (존 8, 보물 24, 장비 6, 이벤트 8, 환생 수치) — 재스킨 시 이 파일만 교체
+js/core.js            순수 게임 로직 (틱, 산소, 이벤트, 정산, 장비, 환생, 오프라인, 저장) — DOM 의존 0
+js/main.js            루프·UI 바인딩
+js/bg.js              캔버스 배경 연출 (존 그라디언트·버블·잠수부·파티클)
+js/audio.js           Web Audio 신스 (v2 이식 + 수심 무드 필터)
+js/firebase.js        익명 인증·닉네임(비속어 필터)·수심 리더보드·오프라인 큐. SDK 없어도 동작
+js/i18n.js            ko/en
+vendor/               Firebase compat SDK 3종 + Jua 폰트 로컬 번들 (오프라인 첫 실행 OK)
+database.rules.json   RTDB 규칙 (players 읽기 공개, 본인만 쓰기, maxDepth 0~1200 단조증가, 필드 화이트리스트)
+sim/sim.mjs           밸런스 시뮬레이션 봇
+test/core.test.mjs    단위 테스트 11개 (node --test)
+test/e2e.py           Playwright 헤드리스 E2E + 스크린샷
+```
+
+### 실행 / 검증
+```bash
+npm test                 # 단위 테스트
+npm run sim -- 1 1       # 시뮬레이션 (risk seed [casual])
+python3 test/e2e.py      # E2E (localhost:8765 자동 기동, test/shots/ 에 스크린샷)
+npm run serve            # 수동 플레이: http://localhost:8765
+```
+
+### 데이터 호환
+- v2의 `oceanPlayer`(닉네임)는 그대로 재사용 → 기존 사용자는 닉네임 재입력 없음.
+- 세이브는 `oceanSaveV3` 신규. v2 `oceanProgress`(별)는 무시.
+- Firebase `players/{uid}`에 `maxDepth` 필드 추가, 리더보드는 `orderByChild('maxDepth')`. 기존 `highScore`는 남겨둠.
+
+### 배포 체크리스트 (v3.0)
+- [ ] Firebase Console → Realtime Database → 규칙에 `database.rules.json` 적용 (`.indexOn` 포함)
+- [ ] `v3-pivot` → `main` 머지 시 GitHub Pages 자동 배포 (폴더 구조 그대로 서빙됨)
+- [ ] `ocean-game-app/www/`를 `index.html css/ js/ vendor/ privacy.html`로 교체 → `npx cap copy ios` → Xcode Archive
+- [ ] App Store Connect: 버전 3.0, KR 현지화 이름 "바다 속 보물찾기: 잠수부 키우기", 스크린샷 교체(test/shots 참고), 설명 갱신
+- [ ] 수익화: 무료·광고 없음·IAP 없음 (GDD_V3.md §7)
